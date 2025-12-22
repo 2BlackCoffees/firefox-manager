@@ -1,0 +1,11 @@
+[Unit]
+Description=Ensure Firefox stays killed when not allowed
+After=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/local/bin/ff-killer.sh
+Restart=always
+
+[Install]
+WantedBy=graphical.target

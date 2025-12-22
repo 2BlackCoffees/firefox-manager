@@ -1,0 +1,11 @@
+[Unit]
+Description=Start Firefox
+After=graphical.target
+
+[Service]
+Type=simple
+User=<user>
+ExecStart=/bin/bash /usr/local/bin/ff-starter.sh
+KillMode=process
+
+[Install]

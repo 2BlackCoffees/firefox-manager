@@ -1,0 +1,8 @@
+/usr/bin/xdg-mime: 1184: echo: echo: I/O error
+Error: no DISPLAY environment variable specified
+[Parent 27616, Main Thread] WARNING: Failed to mkdir /home/antoine/snap/firefox/7559/.config/ibus/bus: Not a directory: 'glib warning', file /build/firefox/parts/firefox/build/toolkit/xre/nsSigHandlers.cpp:201
+
+(firefox_firefox:27616): IBUS-WARNING **: 21:38:57.309: Failed to mkdir /home/antoine/snap/firefox/7559/.config/ibus/bus: Not a directory
+[Parent 31642, Main Thread] WARNING: Failed to mkdir /home/antoine/snap/firefox/7559/.config/ibus/bus: Not a directory: 'glib warning', file /build/firefox/parts/firefox/build/toolkit/xre/nsSigHandlers.cpp:201
+
+(firefox_firefox:31642): IBUS-WARNING **: 07:56:18.130: Failed to mkdir /home/antoine/snap/firefox/7559/.config/ibus/bus: Not a directory

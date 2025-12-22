@@ -1,0 +1,83 @@
+preinstall() {
+    sudo apt update && sudo apt install openssh-server -y
+    sudo systemctl enable --now ssh
+    sudo ufw allow ssh
+    sudo ufw enable
+    sudo ufw status
+    sudo apt install pulseaudio-utils
+    # Disable the screensaver itself
+    xfconf-query -c xfce4-screensaver -p /saver/enabled -n -t bool -s false
+    # Disable the lock screen functionality
+    xfconf-query -c xfce4-screensaver -p /lock/enabled -n -t bool -s false
+    # Disable screen blanking (DPMS)
+    xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-enabled -n -t bool -s false
+    # Disable locking the screen when the system goes to sleep
+    xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/lock-screen-suspend-hibernate -n -t bool -s false
+
+    # (Optional) Set lid close action to 'nothing' (0) so it doesn't lock or suspend
+    xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/lid-action-on-ac -n -t int -s 0
+    # Completely remove the locker package
+    sudo apt-get purge -y light-locker
+    # Kill any currently running locker processes
+    pkill -9 light-locker
+    pkill -9 xfce4-screensaver
+}
+
+install_files() {   
+    sudo systemctl stop ff-starter.sh
+    sudo systemctl stop ff-killer.sh
+    sudo systemctl disable ff-starter.sh
+    sudo systemctl disable ff-killer.sh
+    
+    sudo cp ff-starter.sh /usr/local/bin/ff-starter.sh
+    sudo cp ff-starter.service /etc/systemd/system/ff-starter.service
+    sudo cp ff-killer.sh /usr/local/bin/ff-killer.sh
+    sudo cp ff-killer.service /etc/systemd/system/ff-killer.service
+    sudo cp ff-limit.sh /usr/local/bin/ff-limit.sh
+    sudo cp ff-limit@.service /etc/systemd/system/ff-limit@.service
+
+    sudo chmod +x /usr/local/bin/ff-*.sh
+    sudo sed -i "s/<user>/$USER/g" /etc/systemd/system/ff-starter.service
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now ff-killer.service
+    sudo systemctl enable --now ff-starter.service
+    sudo loginctl enable-linger $USER
+    systemctl list-units --all "ff-*"
+
+}
+
+next_steps() {
+    echo "Installation complete!"
+    echo "Next steps:"
+    paplay /usr/share/sounds/freedesktop/stereo/complete.oga
+    echo "In /etc/lightdm/lightdm.conf"
+    echo "autologin-user=$USER"
+    echo "autologin-user-timeout=0"
+    echo "On your remote computer"
+    echo 'ssh-keygen -t ed25519 -f ~/.ssh/my_custom_key -N "mypassphrase" -C "my_comment"'
+    echo 'ssh-copy-id -i ~/.ssh/my_custom_key.pub $USER@$(hostname -I | perl -npe 's: .*::')'
+    echo 'alias ff="ssh -i ~/.ssh/my_custom_key $USER@$(hostname -I | perl -npe 's: .*::')" >> .bashrc'
+    echo "Then you can use the 'ff' command to control Firefox remotely."
+}
+
+test() {
+    paplay /usr/share/sounds/freedesktop/stereo/complete.oga
+    pactl set-sink-volume @DEFAULT_SINK@ +5%
+
+    sudo systemctl start ff-limit@2 youtube.com
+
+    ## Kill any existing Firefox instances
+    #sudo systemctl stop "ff-limit@*"
+
+    # Check logs
+    tail -n 60 /var/log/firefox_usage.log
+}
+
+if [ "$1" == "run" ]; then
+    preinstall
+    install_files
+    next_steps
+    test
+fi
+
