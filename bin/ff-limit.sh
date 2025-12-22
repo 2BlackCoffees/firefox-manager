@@ -22,10 +22,12 @@ log "Firefox timer started for $DURATION_MINS minutes, with temporary sites: ${T
 
 start_firefox() {
     touch $START_FIREFOX
+    log "Enabled semaphore $START_FIREFOX: $(ls -l $START_FIREFOX)"
 }
 
 disable_firefox_start() {
     rm -f $START_FIREFOX
+    log "Disabled semaphore $START_FIREFOX: $(ls -l $START_FIREFOX)"
 }
 
 kill_firefox() {
