@@ -8,7 +8,6 @@ while true; do
     if [ -f "$START_FIREFOX" ]; then
         log "Found start semaphore: $(ls -l $START_FIREFOX)"
         export DISPLAY=:0
-        log "Start semaphore should be removed: $(ls -l $START_FIREFOX)"
         log "Starting Firefox"
         firefox 
         log "Firefox stopped"
