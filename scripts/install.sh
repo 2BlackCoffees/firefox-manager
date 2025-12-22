@@ -28,13 +28,19 @@ install_files() {
     sudo systemctl stop ff-killer.sh
     sudo systemctl disable ff-starter.sh
     sudo systemctl disable ff-killer.sh
+    SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
     
-    sudo cp ff-starter.sh /usr/local/bin/ff-starter.sh
-    sudo cp ff-starter.service /etc/systemd/system/ff-starter.service
-    sudo cp ff-killer.sh /usr/local/bin/ff-killer.sh
-    sudo cp ff-killer.service /etc/systemd/system/ff-killer.service
-    sudo cp ff-limit.sh /usr/local/bin/ff-limit.sh
-    sudo cp ff-limit@.service /etc/systemd/system/ff-limit@.service
+    sudo cp $SCRIPT_DIR/../bin/ff-starter.sh /usr/local/bin/ff-starter.sh
+    sudo cp $SCRIPT_DIR/../services/ff-starter.service /etc/systemd/system/ff-starter.service
+    sudo cp $SCRIPT_DIR/../bin/ff-killer.sh /usr/local/bin/ff-killer.sh
+    sudo cp $SCRIPT_DIR/../services/ff-killer.service /etc/systemd/system/ff-killer.service
+    sudo cp $SCRIPT_DIR/../bin/ff-limit.sh /usr/local/bin/ff-limit.sh
+    sudo cp $SCRIPT_DIR/../services/ff-limit@.service /etc/systemd/system/ff-limit@.service
+    
+    sudo cp $SCRIPT_DIR/../misc/firefox_permanent_sites.txt /usr/local/etc/firefox_permanent_sites.txt
+    sudo chown root:root /usr/local/etc/firefox_permanent_sites.txt
+    sudo chmod 644 /usr/local/etc/firefox_permanent_sites.txt
 
     sudo chmod +x /usr/local/bin/ff-*.sh
     sudo sed -i "s/<user>/$USER/g" /etc/systemd/system/ff-starter.service

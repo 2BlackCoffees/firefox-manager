@@ -1,4 +1,10 @@
 #!/bin/bash
+
+log() {
+    local message=$1
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] $message" >> "/var/log/ff-limit.log"
+}
+
 DURATION_MINS=$1
 # Collect all arguments after the first as temporary websites
 shift
@@ -8,33 +14,29 @@ POLICIES_DIR=/etc/firefox/policies
 POLICY_FILE="$POLICIES_DIR/policies.json"
 PERM_SITES_FILE="/usr/local/etc/firefox_permanent_sites.txt"
 SOUND_FILE="/usr/share/sounds/freedesktop/stereo/message.oga" # Default Ubuntu alert sound
-LOG_FILE="/var/log/firefox_usage.log"
-LOCK_FILE="/tmp/firefox_allowed.lock"
+STOP_FIREFOX="/tmp/stop_firefox.lock"
+
+START_FIREFOX="/tmp/firefox_start.lock"
 START_EPOCH=$(date +%s)
-echo "[$(date +"%Y-%m-%d %H:%M:%S")] Firefox timer started for $DURATION_MINS minutes, with temporary sites: ${TEMP_SITES[*]}" >> "$LOG_FILE"
+log "Firefox timer started for $DURATION_MINS minutes, with temporary sites: ${TEMP_SITES[*]}"
 
-# Cleanup on exit
-stop_session() {
-    rm -f $LOCK_FILE
-    update_policy "lock"
-    pkill -9 -f firefox
-    # 5. Log completion
-    END_EPOCH=$(date +%s)
-    ELAPSED=$(( (END_EPOCH - START_EPOCH) / 60 ))
-    echo "[$(date +"%Y-%m-%d %H:%M:%S")] Firefox EXPIRED. Total: $ELAPSED mins" >> "$LOG_FILE"
+start_firefox() {
+    touch $START_FIREFOX
 }
-trap "stop_session; exit" EXIT
 
-# Create the necessary directory structure
-if [[ ! -e $POLICY_FILE ]]; then
-    sudo mkdir -p $POLICIES_DIR
-    sudo touch $POLICY_FILE
-fi
-# sudo chmod 666 $POLICY_FILE
+disable_firefox_start() {
+    rm -f $START_FIREFOX
+}
+
+kill_firefox() {
+    disable_firefox_start
+    log "Killing firefox"
+    log $(pkill -9 -f firefox)
+    log "Processes $(ps -edf | grep firefox)"
+}
 
 # Function to rebuild the Firefox policy
 update_policy() {
-    pkill -9 -f firefox
 
     local block_mode=$1
     local exceptions=""
@@ -54,6 +56,7 @@ update_policy() {
     # Trim trailing comma and build JSON
     exceptions=$(echo "$exceptions" | sed 's/, $//')
     
+    kill_firefox
     cat <<EOF > "$POLICY_FILE"
 {
   "policies": {
@@ -64,25 +67,57 @@ update_policy() {
   }
 }
 EOF
-
-    echo "[$(date +"%Y-%m-%d %H:%M:%S")] Updated Firefox policy ($block_mode mode):" >> "$LOG_FILE"
-    cat "$POLICY_FILE" >> "$LOG_FILE"
+    log "Updated Firefox policy ($block_mode mode):"
+    log "$POLICY_FILE: $(cat $POLICY_FILE)"
 }
 
 
+# Cleanup on exit
+stop_session() {
+    log "Stopping session..."
+    update_policy "lock"
+
+    
+    END_EPOCH=$(date +%s)
+    ELAPSED=$(( (END_EPOCH - START_EPOCH) / 60 ))
+    log "Firefox EXPIRED. Total: $ELAPSED mins"
+}
+trap "stop_session; exit" EXIT
+
+# Create the necessary directory structure
+if [[ ! -e $POLICY_FILE ]]; then
+    # Set directory permissions
+    sudo mkdir -p $POLICIES_DIR
+    sudo chmod 755 $POLICIES_DIR
+
+    sudo touch $POLICY_FILE
+fi
+
+sudo chown root:root $POLICY_FILE
+sudo chmod 644 $POLICY_FILE
+log "Updated access on $POLICY_FILE: $(ls -l $POLICY_FILE)"
+
+if [[ ! -e $PERM_SITES_FILE ]]; then
+    sudo touch $PERM_SITES_FILE
+    sudo chown root:root $PERM_SITES_FILE
+    sudo chmod 644 $PERM_SITES_FILE
+fi
+log "Updated access on $PERM_SITES_FILE: $(ls -l $PERM_SITES_FILE), content is:"
+log $(cat $PERM_SITES_FILE)
+
 
 # Start: Unlock internet/sites
-touch $LOCK_FILE
 update_policy "unlock"
 
-# export DISPLAY=:0
-su -p antoine -c "export DISPLAY=:0; firefox &"
+start_firefox
+
 
 # 3. Wait for (Duration - 1) minutes
 if [ $DURATION_MINS -gt 1 ]; then
     sleep $(( (DURATION_MINS - 1) * 60 ))
 fi
 
+log "Time almost elapsed, starting belling"
 # 4. Final Minute Alerts (every 20 seconds)
 for i in {1..4}; do
     # Only play if Firefox is still running
@@ -99,12 +134,13 @@ for i in {1..6}; do
     fi
 done
 
-# Wait duration
-sleep $((DURATION_MINS * 60))
+disable_firefox_start
 
+log "Time is fully over, killing Firefox!"
+kill_firefox
+log "Stopping session"
 stop_session
 
-
-
+log "Done"
 
 
