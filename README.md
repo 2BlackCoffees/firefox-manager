@@ -37,7 +37,7 @@ chmod +x scripts/install.sh
 Add the alias.sh to your shell configuration to enable the command-line interface:
 Append the function from alias.sh to your ~/.bashrc
 ```bash
-cp scrips/alias.sh $HOME/.alias.sh
+cp scripts/alias.sh $HOME/.alias.sh
 echo "source $HOME/.alias.sh" >> $HOME/.bashrc
 source ~/.bashrc
 ```
