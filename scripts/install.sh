@@ -23,6 +23,12 @@ preinstall() {
     pkill -9 xfce4-screensaver
 }
 
+install_vnc() {
+    sudo ufw allow 5900/tcp
+    sudo apt install xfce4 xfce4-goodies -y
+    sudo apt install x11vnc
+}
+
 install_files() {   
     sudo systemctl stop ff-starter.sh
     sudo systemctl stop ff-killer.sh
@@ -57,14 +63,22 @@ next_steps() {
     echo "Installation complete!"
     echo "Next steps:"
     paplay /usr/share/sounds/freedesktop/stereo/complete.oga
+    echo "On this computer:"
+    SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+    echo "echo \"source $SCRIPT_DIR/alias.sh\" > .bashrc"
+
     echo "In /etc/lightdm/lightdm.conf"
     echo "autologin-user=$USER"
     echo "autologin-user-timeout=0"
     echo "On your remote computer"
-    echo 'ssh-keygen -t ed25519 -f ~/.ssh/my_custom_key -N "mypassphrase" -C "my_comment"'
-    echo 'ssh-copy-id -i ~/.ssh/my_custom_key.pub $USER@$(hostname -I | perl -npe 's: .*::')'
-    echo 'alias ff="ssh -i ~/.ssh/my_custom_key $USER@$(hostname -I | perl -npe 's: .*::')" >> .bashrc'
-    echo "Then you can use the 'ff' command to control Firefox remotely."
+    echo "ssh-keygen -t ed25519 -f ~/.ssh/$(hostname)_key -N '' -C ''"
+    ip_addr=$(hostname -I | perl -npe 's: .*::')
+    echo "ssh-copy-id -i ~/.ssh/$(hostname)_key.pub ${USER}@${ip_addr}"
+    echo "echo \"alias ff=\\\"ssh -i ~/.ssh/$(hostname)_key ${USER}@${ip_addr}\\\"\" >> .bashrc"
+    echo "Then you can use the 'ff' command to login to this computer remotely."
+    echo "Once logged in you can control firefox with ff"
+
+
 }
 
 test() {

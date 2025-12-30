@@ -4,7 +4,10 @@ ff() {
             # Usage: ff start <mins> <site1> <site2> ...
             local mins=${2:-30}
             shift 2
-            local sites=${*:-"youtube.com"}
+            local sites="youtube.com"
+            if [[ $# -ge 1 ]]; then
+	       sites="$*"
+            fi
 
             echo "Starting Firefox for $mins minutes with extra sites: $sites"
             
