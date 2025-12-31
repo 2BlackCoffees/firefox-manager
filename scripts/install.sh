@@ -27,18 +27,25 @@ install_vnc() {
     sudo ufw allow 5900/tcp
     sudo apt install xfce4 xfce4-goodies -y
     sudo apt install x11vnc
+    mkdir $HOME/.vnc
 }
 
 install_files() {   
     sudo systemctl stop ff-starter.sh
     sudo systemctl stop ff-killer.sh
+    sudo systemctl stop ff-bell.sh
     sudo systemctl disable ff-starter.sh
     sudo systemctl disable ff-killer.sh
+    sudo systemctl disable ff-bell.sh
+
     SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
     
+    mkdir -p ~/.config/systemd/user
+    cp $SCRIPT_DIR/../services/ff-starter.service ~/.config/systemd/user/ff-starter.service
+    cp $SCRIPT_DIR/../services/ff-bell.service ~/.config/systemd/user/ff-bell.service
     sudo cp $SCRIPT_DIR/../bin/ff-starter.sh /usr/local/bin/ff-starter.sh
-    sudo cp $SCRIPT_DIR/../services/ff-starter.service /etc/systemd/system/ff-starter.service
+    sudo cp $SCRIPT_DIR/../bin/ff-bell.sh /usr/local/bin/ff-bell.sh
     sudo cp $SCRIPT_DIR/../bin/ff-killer.sh /usr/local/bin/ff-killer.sh
     sudo cp $SCRIPT_DIR/../services/ff-killer.service /etc/systemd/system/ff-killer.service
     sudo cp $SCRIPT_DIR/../bin/ff-limit.sh /usr/local/bin/ff-limit.sh
@@ -49,13 +56,20 @@ install_files() {
     sudo chmod 644 /usr/local/etc/firefox_permanent_sites.txt
 
     sudo chmod +x /usr/local/bin/ff-*.sh
-    sudo sed -i "s/<user>/$USER/g" /etc/systemd/system/ff-starter.service
+    # sudo sed -i "s/<user>/$USER/g" /etc/systemd/system/ff-starter.service
 
     sudo systemctl daemon-reload
     sudo systemctl enable --now ff-killer.service
-    sudo systemctl enable --now ff-starter.service
     sudo loginctl enable-linger $USER
+    systemctl --user daemon-reload
+    systemctl --user enable ff-starter.service
+    systemctl --user start ff-starter.service
+    systemctl --user enable ff-bell.service
+    systemctl --user start ff-bell.service
     systemctl list-units --all "ff-*"
+    sudo systemctl status ff-killer.service
+    systemctl --user status ff-starter.service
+    systemctl --user status ff-bell.service
 
 }
 

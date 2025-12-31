@@ -17,6 +17,8 @@ SOUND_FILE="/usr/share/sounds/freedesktop/stereo/message.oga" # Default Ubuntu a
 STOP_FIREFOX="/tmp/stop_firefox.lock"
 
 START_FIREFOX="/tmp/firefox_start.lock"
+BELL_SEMAPHORE=/tmp/firefox_bell.lock
+
 START_EPOCH=$(date +%s)
 log "Firefox timer started for $DURATION_MINS minutes, with temporary sites: ${TEMP_SITES[*]}"
 
@@ -119,6 +121,7 @@ if [ $DURATION_MINS -gt 1 ]; then
     sleep $(( (DURATION_MINS - 1) * 60 ))
 fi
 
+touch $BELL_SEMAPHORE
 log "Time almost elapsed, starting belling"
 # 4. Final Minute Alerts (every 20 seconds)
 for i in {1..4}; do
@@ -135,6 +138,7 @@ for i in {1..6}; do
         paplay "$SOUND_FILE" 2>/dev/null || echo -e "\a" # Fallback to terminal beep
     fi
 done
+rm -f $BELL_SEMAPHORE
 
 disable_firefox_start
 

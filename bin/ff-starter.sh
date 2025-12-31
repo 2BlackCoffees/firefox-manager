@@ -1,16 +1,25 @@
 #!/bin/bash
-START_FIREFOX="/tmp/firefox_start.lock"
+START_FIREFOX=/tmp/firefox_start.lock
+# Log to a user-accessible location
+LOG_FILE=$HOME/ff-starter.log
+
 log() {
-    local message=$1
-    echo "[$(date +"%Y-%m-%d %H:%M:%S")] $message" >> "/var/log/ff-starter.log"
+    cur_date=$(date +"%Y-%m-%d %H:%M:%S")
+    echo "[$cur_date] $1" >> "$LOG_FILE"
 }
+
+# Wait for the graphical session to be fully ready
+export DISPLAY=:0
+export XAUTHORITY=$HOME/.Xauthority
+
 while true; do
     if [ -f "$START_FIREFOX" ]; then
-        log "Found start semaphore: $(ls -l $START_FIREFOX)"
-        export DISPLAY=:0
-        log "Starting Firefox"
-        firefox 
-        log "Firefox stopped"
+        log "Found start semaphore. Starting Firefox..."
+        # Launch firefox and wait for it to exit before checking again
+        firefox
+        log "Firefox stopped."
+        # Optional: remove lock file after starting to prevent loops
+        # rm "$START_FIREFOX" 
     fi
-    sleep 1 # Check every second
+    sleep 1
 done

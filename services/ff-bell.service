@@ -1,5 +1,5 @@
 [Unit]
-Description=Firefox Starter
+Description=Bell before stopping
 # default.target is the standard "login" target for user services
 After=default.target
 
@@ -8,9 +8,7 @@ Type=simple
 # Ensure the script restarts if the X server isn't quite ready yet
 Restart=always
 RestartSec=5
-ExecStart=/bin/bash /usr/local/bin/ff-starter.sh
-# Manually define display since XFCE doesn't always export it to systemd
-Environment=DISPLAY=:0
+ExecStart=/bin/bash /usr/local/bin/ff-bell.sh
 
 [Install]
 WantedBy=default.target
