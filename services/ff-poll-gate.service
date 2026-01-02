@@ -1,0 +1,11 @@
+[Unit]
+Description=Timegate Firefox Manager Poller
+After=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/local/bin/ff-poll-gate.sh
+Restart=always
+
+[Install]
+WantedBy=graphical.target
