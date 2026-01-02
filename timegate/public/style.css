@@ -1,0 +1,251 @@
+:root {
+    --cyan: #00f2ff;
+    --red: #ff003c;
+    --bg-dark: #050505;
+    --glass: rgba(10, 10, 10, 0.9);
+    --border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+    margin: 0;
+    background-color: var(--bg-dark);
+    color: #e0e0e0;
+    font-family: 'Rajdhani', sans-serif;
+    display: flex;
+    justify-content: center;
+}
+
+.background-overlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(rgba(5, 5, 5, 0.9), rgba(5, 5, 5, 0.95)),
+        url('assets/ninja-bg.png') no-repeat center center fixed;
+    background-size: cover;
+    z-index: -1;
+}
+
+#app {
+    width: 100%;
+    max-width: 850px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+header {
+    padding: 10px 0;
+}
+
+.logo {
+    font-family: 'Orbitron';
+    color: var(--cyan);
+    letter-spacing: 5px;
+    font-size: 1.1rem;
+}
+
+.ninja-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Widget Structure */
+.widget-row {
+    padding: 25px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.glass {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+h3 {
+    font-family: 'Orbitron';
+    font-size: 0.8rem;
+    color: var(--cyan);
+    margin: 0 0 20px 0;
+    letter-spacing: 2px;
+}
+
+/* Target & Manual Block */
+.site-selector {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.site-btn input {
+    display: none;
+}
+
+.site-btn span {
+    border: 1px solid #333;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.site-btn input:checked+span {
+    background: var(--cyan);
+    color: #000;
+    font-weight: bold;
+    box-shadow: 0 0 15px var(--cyan);
+}
+
+.full-width-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"] {
+    background: #000;
+    border: 1px solid #333;
+    color: var(--cyan);
+    padding: 15px;
+    border-radius: 4px;
+    font-family: 'Orbitron';
+}
+
+.btn-pin {
+    background: none;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Orbitron';
+    font-size: 0.8rem;
+}
+
+/* Time Allotment Block */
+.horizontal-block {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+
+}
+
+.time-input-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    width: 100%;
+}
+
+#duration {
+    flex-grow: 1;
+    text-align: center;
+    font-size: 1.5rem;
+    border-color: var(--cyan);
+}
+
+.unit-label {
+    font-family: 'Orbitron';
+    font-size: 1.2rem;
+    color: var(--cyan);
+    white-space: nowrap;
+}
+
+/* Admin Controls Block */
+.admin-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Buttons */
+.btn-cyan,
+.btn-danger,
+.btn-ghost {
+    border: none;
+    padding: 16px;
+    border-radius: 4px;
+    font-family: 'Orbitron';
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: bold;
+    text-align: center;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.btn-cyan {
+    background: var(--cyan);
+    color: #000;
+}
+
+.btn-danger {
+    background: var(--red);
+    color: #fff;
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid #444;
+    color: #777;
+}
+
+/* History */
+.history-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.log-item {
+    border-bottom: 1px solid #222;
+    padding: 12px 0;
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.96);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modal-card {
+    background: #0a0a0a;
+    border: 1px solid var(--cyan);
+    padding: 30px;
+    width: 350px;
+    border-radius: 8px;
+}
+
+.modal-btns {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.modal-btns button {
+    flex: 1;
+}
+
+.header-info    { color: #00f2ff; border-bottom: 1px solid #00f2ff; }
+.header-warning { color: #ffcc00; border-bottom: 1px solid #ffcc00; }
+.header-error   { color: #ff4444; border-bottom: 1px solid #ff4444; }
+
+.modal-body {
+    padding: 20px 0;
+    color: #e0e0e0;
+    line-height: 1.5;
+}

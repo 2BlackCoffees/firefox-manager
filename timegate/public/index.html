@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeGate // NINJA STEALTH</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="authModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header" id="modalHeader">☯ ACCESS KEY REQUIRED</div>
+            <input type="password" id="modalInput" placeholder="••••••••">
+            <div class="modal-btns">
+                <button id="modalConfirm" class="btn-cyan">CONFIRM</button>
+                <button id="modalCancel" class="btn-ghost">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="infoModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div id="infoTitle" class="modal-header">INFO</div>
+            <div id="infoMessage" class="modal-body">System message goes here.</div>
+            <div class="modal-btns">
+                <button id="infoClose" class="btn-cyan">DISMISS</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="background-overlay"></div>
+    
+    <div id="app">
+        <header>
+            <div class="logo">☯ TIMEGATE <span class="accent">// STEALTH</span></div>
+        </header>
+
+        <main class="ninja-layout">
+            <section class="widget-row glass">
+                <h3>⚔ MISSION TARGETS</h3>
+                <div id="siteSelector" class="site-selector">
+                    <label class="site-btn"><input type="checkbox" value="youtube"><span>Youtube</span></label>
+                    <label class="site-btn"><input type="checkbox" value="chatgpt"><span>ChatGPT</span></label>
+                    <label class="site-btn"><input type="checkbox" value="discord"><span>Discord</span></label>
+                </div>
+                <div class="full-width-input-group">
+                    <input type="text" id="customSite" placeholder="Enter custom mission URL (e.g., twitch.tv)...">
+                    <button id="pinSiteBtn" class="btn-pin">PIN TO SCROLL</button>
+                </div>
+            </section>
+
+            <section class="widget-row glass centered-widget">
+                <h3>⏱ TIME ALLOTMENT</h3>
+                <div class="horizontal-block">
+                    <div class="time-input-row">
+                        <input type="number" id="duration" value="20" min="1">
+                        <span class="unit-label">MINUTES</span>
+                    </div>
+                    <button id="allowBtn" class="btn-cyan full-width">GRANT PASSAGE</button>
+                </div>
+            </section>
+
+            <section class="widget-row glass centered-widget">
+                <h3>⚙ SYSTEM ADMINISTRATION</h3>
+                <div class="horizontal-block">
+                    <button id="stopBtn" class="btn-danger">EMERGENCY STOP</button>
+                    <button id="changePassBtn" class="btn-ghost">PASSWORD UPDATE</button>
+                </div>
+            </section>
+
+            <section class="logs-section">
+                <div class="card glass logs-card">
+                    <h3>📜 MISSION LOGS</h3>
+                    <div id="historyList" class="history-list"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script type="module" src="../src/client/app.js"></script>
+</body>
+</html>
