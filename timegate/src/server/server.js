@@ -127,4 +127,12 @@ app.get('/api/poll', checkAuth, async (req, res) => {
     res.json({ status: 'none' });
 });
 
-app.listen(3000, () => console.log('Server: Port 3000'));
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Local server running on http://localhost:${PORT}`);
+  });
+}
+
+// Crucial: Export the app for Vercel's serverless handler
+module.exports = app;

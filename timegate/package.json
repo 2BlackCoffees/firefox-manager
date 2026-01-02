@@ -2,21 +2,18 @@
   "name": "timegate",
   "version": "1.0.0",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node src/server/server.js",
+    "build": "parcel build ./public/index.html --dist-dir dist"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "pg": "^8.16.3"
-  },
-  "devDependencies": {
+    "pg": "^8.16.3",
     "parcel": "^2.16.3"
-  },
-  "description": ""
+  }
 }
