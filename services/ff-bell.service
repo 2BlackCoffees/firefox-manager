@@ -1,7 +1,7 @@
 [Unit]
 Description=Bell before stopping
 # default.target is the standard "login" target for user services
-After=default.target
+After=graphical.target
 
 [Service]
 Type=simple
@@ -11,5 +11,5 @@ RestartSec=5
 ExecStart=/bin/bash /usr/local/bin/ff-bell.sh
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical.target
 

@@ -3,8 +3,9 @@ Description=Timegate Firefox Manager Poller
 After=graphical.target
 
 [Service]
+EnvironmentFile=/usr/local/bin/.env
 Type=simple
-ExecStart=/bin/bash /usr/local/bin/ff-poll-gate.sh
+ExecStart=/bin/bash /usr/local/bin/ff-poller-gate.sh
 Restart=always
 
 [Install]
