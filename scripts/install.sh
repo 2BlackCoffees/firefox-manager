@@ -30,17 +30,29 @@ install_vnc() {
     mkdir $HOME/.vnc
 }
 
-install_files() {   
+uninstall_all() {
     sudo systemctl stop ff-starter.sh
     sudo systemctl stop ff-killer.sh
     sudo systemctl stop ff-bell.sh
     sudo systemctl disable ff-starter.sh
     sudo systemctl disable ff-killer.sh
     sudo systemctl disable ff-bell.sh
+    systemctl --user stop ff-starter.service
+    systemctl --user stop ff-bell.service
+    systemctl --user disable ff-starter.service
+    systemctl --user disable ff-bell.service
+    sudo rm /etc/systemd/system/ff-limit@.service
+    sudo rm /usr/local/etc/firefox_permanent_sites.txt
+
+    sudo systemctl daemon-reload
+    systemctl --user daemon-reload
+
+}
+install_files() {
+    uninstall_all
 
     SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
-    
     mkdir -p ~/.config/systemd/user
     cp $SCRIPT_DIR/../services/ff-starter.service ~/.config/systemd/user/ff-starter.service
     cp $SCRIPT_DIR/../services/ff-bell.service ~/.config/systemd/user/ff-bell.service
@@ -50,7 +62,7 @@ install_files() {
     sudo cp $SCRIPT_DIR/../services/ff-killer.service /etc/systemd/system/ff-killer.service
     sudo cp $SCRIPT_DIR/../bin/ff-limit.sh /usr/local/bin/ff-limit.sh
     sudo cp $SCRIPT_DIR/../services/ff-limit@.service /etc/systemd/system/ff-limit@.service
-    
+
     sudo cp $SCRIPT_DIR/../misc/firefox_permanent_sites.txt /usr/local/etc/firefox_permanent_sites.txt
     sudo chown root:root /usr/local/etc/firefox_permanent_sites.txt
     sudo chmod 644 /usr/local/etc/firefox_permanent_sites.txt
@@ -58,10 +70,10 @@ install_files() {
     sudo chmod +x /usr/local/bin/ff-*.sh
     # sudo sed -i "s/<user>/$USER/g" /etc/systemd/system/ff-starter.service
 
-    sudo systemctl daemon-reload
-    sudo systemctl enable --now ff-killer.service
     sudo loginctl enable-linger $USER
+    sudo systemctl daemon-reload
     systemctl --user daemon-reload
+    sudo systemctl enable --now ff-killer.service
     systemctl --user enable ff-starter.service
     systemctl --user start ff-starter.service
     systemctl --user enable ff-bell.service
