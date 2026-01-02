@@ -48,13 +48,6 @@ app.post('/api/change-password', checkAuth, async (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/oldallow', checkAuth, async (req, res) => {
-    const { sites, duration } = req.body;
-    const result = await pool.query('INSERT INTO allowances (sites, duration_minutes, status) VALUES ($1, $2, $3) RETURNING *', [sites, duration, 'active']);
-    await pool.query('INSERT INTO history (allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4)', [result.rows[0].id, sites, duration, 'CREATED']);
-    res.json(result.rows[0]);
-});
-
 app.post('/api/allow', checkAuth, async (req, res) => {
     const { sites, duration } = req.body;
     const client = await pool.connect(); // Get a client for the transaction
@@ -111,7 +104,7 @@ app.get('/api/history', async (req, res) => {
     }
 });
 
-app.get('/api/poll', checkAuth, async (req, res) => {
+app.get('/api/poll', async (req, res) => {
     const allowance = await pool.query('SELECT * FROM allowances ORDER BY created_at ASC LIMIT 1');
     
     const result = await pool.query('DELETE FROM allowances WHERE id = (SELECT id FROM allowances ORDER BY created_at ASC LIMIT 1) RETURNING *');
@@ -122,7 +115,7 @@ app.get('/api/poll', checkAuth, async (req, res) => {
             new_status = status + '_fetched_by_child';
         }
         await pool.query('INSERT INTO history (allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4)', [result.rows[0].id, result.rows[0].sites, result.rows[0].duration_minutes, new_status.toUpperCase()]);
-        return res.json({ status: status, new_status: new_status, sites: result.rows[0].sites, duration: result.rows[0].duration_minutes, result: result.rows[0].id + ", " + result.rows[0].sites + ", " + result.rows[0].duration_minutes + ", " + result.rows[0].status + ", " + new_status.toUpperCase(), allowance: allowance.rows[0].id + ", " + allowance.rows[0].sites + ", " + allowance.rows[0].duration_minutes + ", " + allowance.rows[0].status});
+        return res.json({ status: status, sites: result.rows[0].sites, duration: result.rows[0].duration_minutes});
     }
     res.json({ status: 'none' });
 });
