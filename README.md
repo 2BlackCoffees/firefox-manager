@@ -24,10 +24,38 @@ These platforms pose risks of cyberbullying and predatory grooming through priva
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation & Configuration
 
-### 1. Run the Installer
-The installer configures system services, permissions, and XFCE power settings to prevent bypass via lock screens.
+This project allows for remote management of Firefox instances via a cloud-based application. The installer automates system services, permission handling, and XFCE power settings to ensure the lock screen cannot be bypassed.
+
+### 📋 Prerequisites
+
+Before running the installation script, ensure you have your environment variables ready if you plan on using the **Web Remote Control** features.
+
+---
+
+#### Configure Web Remote Control (Optional)
+
+If you intend to control Firefox remotely via the cloud application, you must configure your environment variables first.
+
+1. Navigate to the `firefox-manager/bin/` directory.
+2. Create or modify the `.env` file with your specific API credentials:
+
+```bash
+# Sensitive API Info
+TIMEGATE_API_URL="Your project-name.vercel.app alias"
+TIMEGATE_BYPASS_SECRET="Your TIMEGATE_BYPASS_SECRET"
+
+```
+
+
+---
+
+#### Run the Installer
+
+The installation script will configure system dependencies and lock down XFCE power settings.
+
+**Execute the following commands in your terminal:**
 ```bash
 chmod +x scripts/install.sh
 ./scripts/install.sh run
