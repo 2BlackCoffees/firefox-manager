@@ -13,7 +13,7 @@ ff() {
             
             # Set the environment variable for systemd, then start the service
             sudo systemctl set-environment SITES_TO_UNLOCK="$sites"
-            sudo systemctl start "ff-limit@$mins"
+            sudo systemctl start "ff-limiter@$mins"
 
             ;;
         unlock-perm)
@@ -24,11 +24,11 @@ ff() {
             ;;
         stop)
             echo "Stopping Firefox and locking sites..."
-            sudo systemctl stop "ff-limit@*"
+            sudo systemctl stop "ff-limiter@*"
             ;;
         status)
             # Check for any active instance of the template
-            local unit=$(systemctl list-units "ff-limit@*" --state=active --format=json | jq -r '.[0].unit' 2>/dev/null || systemctl list-units "ff-limit@*" --state=active | grep -o 'ff-limit@[0-9]*\.service' | head -1)
+            local unit=$(systemctl list-units "ff-limiter@*" --state=active --format=json | jq -r '.[0].unit' 2>/dev/null || systemctl list-units "ff-limit@*" --state=active | grep -o 'ff-limit@[0-9]*\.service' | head -1)
             
             if [ -z "$unit" ]; then
                 echo "Firefox timer is NOT running."

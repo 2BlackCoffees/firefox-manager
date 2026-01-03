@@ -31,33 +31,36 @@ install_vnc() {
 }
 
 uninstall_all() {
-    sudo systemctl stop ff-starter.sh
-    sudo systemctl stop ff-killer.sh
-    sudo systemctl stop ff-bell.sh
-    sudo systemctl stop ff-poll-gate.service
-    sudo systemctl disable ff-starter.sh
-    sudo systemctl disable ff-killer.sh
-    sudo systemctl disable ff-bell.sh
-    sudo systemctl disable ff-poll-gate.sh
-    sudo systemctl disable ff-poll-gate.service
+    sudo systemctl stop ff-starter.service
+    sudo systemctl stop ff-killer.service
+    sudo systemctl stop ff-bell.service
+    sudo systemctl stop ff-poller-gate.service
+    sudo systemctl disable ff-starter.service
+    sudo systemctl disable ff-killer.service
+    sudo systemctl disable ff-bell.service
+    sudo systemctl disable ff-poller-gate.service
     systemctl --user stop ff-starter.service
     systemctl --user stop ff-bell.service
     systemctl --user disable ff-starter.service
     systemctl --user disable ff-bell.service
-    sudo rm /etc/systemd/system/ff-limit@.service
+    sudo rm /etc/systemd/system/ff-limiter@.service
     sudo rm /usr/local/etc/firefox_permanent_sites.txt
 
     sudo systemctl daemon-reload
     systemctl --user daemon-reload
 
+    ps -aux | grep -P "ff-.*.sh" | grep -v grep
+
 }
 install_files() {
     uninstall_all
     SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+    sudo apt update && sudo apt install jq curl
+
 
     # If ./.env does not exist exit with error 
-    if [ ! -f $SCRIPT_DIR/.env ]; then
-        echo "Warning: $SCRIPT_DIR/.env file not found, please read the README.md file to learn how to set it up: No connection to the beackend will be possible."
+    if [ ! -f $SCRIPT_DIR/../bin/.env ]; then
+        echo "Warning: $SCRIPT_DIR/../bin/.env file not found, please read the README.md file to learn how to set it up: No connection to the beackend will be possible."
     fi
 
 
@@ -68,11 +71,11 @@ install_files() {
     sudo cp $SCRIPT_DIR/../bin/ff-bell.sh /usr/local/bin/ff-bell.sh
     sudo cp $SCRIPT_DIR/../bin/ff-killer.sh /usr/local/bin/ff-killer.sh
     sudo cp $SCRIPT_DIR/../bin/ff-limit.sh /usr/local/bin/ff-limit.sh
-    sudo cp $SCRIPT_DIR/../bin/ff-poll-gate.sh /usr/local/bin/ff-poll-gate.sh
+    sudo cp $SCRIPT_DIR/../bin/ff-poller-gate.sh /usr/local/bin/ff-poller-gate.sh
     sudo cp $SCRIPT_DIR/../bin/.env /usr/local/bin/.env
-    sudo cp $SCRIPT_DIR/../services/ff-poll-gate.service /etc/systemd/system/ff-poll-gate.service
+    sudo cp $SCRIPT_DIR/../services/ff-poller-gate.service /etc/systemd/system/ff-poller-gate.service
     sudo cp $SCRIPT_DIR/../services/ff-killer.service /etc/systemd/system/ff-killer.service
-    sudo cp $SCRIPT_DIR/../services/ff-limit@.service /etc/systemd/system/ff-limit@.service
+    sudo cp $SCRIPT_DIR/../services/ff-limiter@.service /etc/systemd/system/ff-limiter@.service
 
     sudo cp $SCRIPT_DIR/../misc/firefox_permanent_sites.txt /usr/local/etc/firefox_permanent_sites.txt
     sudo chown root:root /usr/local/etc/firefox_permanent_sites.txt
@@ -87,16 +90,18 @@ install_files() {
     sudo systemctl daemon-reload
     systemctl --user daemon-reload
     sudo systemctl enable --now ff-killer.service
-    sudo systemctl enable --now ff-poll-gate.service
+    sudo systemctl enable --now ff-poller-gate.service
     systemctl --user enable ff-starter.service
     systemctl --user enable ff-bell.service
     systemctl --user start ff-starter.service
     systemctl --user start ff-bell.service
     systemctl list-units --all "ff-*"
     sudo systemctl status ff-killer.service
-    sudo systemctl status ff-poll-gate.service
+    sudo systemctl status ff-poller-gate.service
     systemctl --user status ff-starter.service
     systemctl --user status ff-bell.service
+
+    ps -aux | grep -P "ff-.*.sh" | grep -v grep
 
 }
 
