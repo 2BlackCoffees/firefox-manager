@@ -35,14 +35,18 @@ uninstall_all() {
     sudo systemctl stop ff-killer.service
     sudo systemctl stop ff-bell.service
     sudo systemctl stop ff-poller-gate.service
+    sudo systemctl stop "ff-limiter@*"
+
     sudo systemctl disable ff-starter.service
     sudo systemctl disable ff-killer.service
     sudo systemctl disable ff-bell.service
     sudo systemctl disable ff-poller-gate.service
+
     systemctl --user stop ff-starter.service
     systemctl --user stop ff-bell.service
     systemctl --user disable ff-starter.service
     systemctl --user disable ff-bell.service
+    
     sudo rm /etc/systemd/system/ff-limiter@.service
     sudo rm /usr/local/etc/firefox_permanent_sites.txt
 
@@ -70,7 +74,7 @@ install_files() {
     sudo cp $SCRIPT_DIR/../bin/ff-starter.sh /usr/local/bin/ff-starter.sh
     sudo cp $SCRIPT_DIR/../bin/ff-bell.sh /usr/local/bin/ff-bell.sh
     sudo cp $SCRIPT_DIR/../bin/ff-killer.sh /usr/local/bin/ff-killer.sh
-    sudo cp $SCRIPT_DIR/../bin/ff-limit.sh /usr/local/bin/ff-limit.sh
+    sudo cp $SCRIPT_DIR/../bin/ff-limiter.sh /usr/local/bin/ff-limiter.sh
     sudo cp $SCRIPT_DIR/../bin/ff-poller-gate.sh /usr/local/bin/ff-poller-gate.sh
     sudo cp $SCRIPT_DIR/../bin/.env /usr/local/bin/.env
     sudo cp $SCRIPT_DIR/../services/ff-poller-gate.service /etc/systemd/system/ff-poller-gate.service
@@ -129,10 +133,10 @@ test() {
     paplay /usr/share/sounds/freedesktop/stereo/complete.oga
     pactl set-sink-volume @DEFAULT_SINK@ +5%
 
-    sudo systemctl start ff-limit@2 youtube.com
+    sudo systemctl start ff-limiter@2 youtube.com
 
     ## Kill any existing Firefox instances
-    #sudo systemctl stop "ff-limit@*"
+    #sudo systemctl stop "ff-limiter@*"
 
     # Check logs
     tail -n 60 /var/log/firefox_usage.log

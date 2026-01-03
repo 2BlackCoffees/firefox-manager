@@ -5,7 +5,7 @@ Description=Firefox Managed Session for %i minutes
 Type=simple
 User=root
 # SITES_TO_UNLOCK is read from the service environment
-ExecStart=/bin/bash -c "/usr/local/bin/ff-limit.sh %i $SITES_TO_UNLOCK"
+ExecStart=/bin/bash -c "/usr/local/bin/ff-limiter.sh %i $SITES_TO_UNLOCK"
 KillMode=process
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/<user>/.Xauthority
