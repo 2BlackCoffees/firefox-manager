@@ -93,16 +93,28 @@ Displays the last 60+ sessions with start times and durations.
 * Google Safety Center: Family Safety Tools
 * Common Sense Media: App & Site Reviews
 
-# ⚙️ Technical Structure
-```text
-File	                                    Purpose
-/usr/local/bin/ff-limit.sh	                Main timer logic, audio warnings, and browser launcher.
-/usr/local/bin/ff-killer.sh	                The Enforcer: Background monitor that kills unauthorized processes.
-/usr/local/bin/ff-starter.sh	            Starts Firefox upon chencges in policies
-/etc/firefox/policies/policies.json	        Enterprise-level security constraints (cannot be bypassed by user).
-/usr/local/etc/firefox_permanent_sites.txt	The list of sites that are always accessible.
-/var/log/ff-limit.log	                    Audit trail of all Firefox usage.
+# ⚙️ Troubleshooting
+The central limiter generates logs in `/var/log/ff-limiter.log`
+```bash
+tail -f /var/log/ff-limiter.log
 ```
+Check starter in  `$HOME/ff-starter.log`
+```bash
+tail -f $HOME/ff-starter.log
+```
+When using the Web Interface, check:
+```bash
+tail -f /var/log/ff-poller-gate.log
+```
+## Additional troubleshooting
+```bash
+    systemctl list-units --all "ff-*"
+    sudo systemctl status ff-killer.service
+    sudo systemctl status ff-poller-gate.service
+    systemctl --user status ff-starter.service
+    systemctl --user status ff-bell.service
+```
+
 
 # Next steps
 
