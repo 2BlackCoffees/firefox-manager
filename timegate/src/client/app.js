@@ -1,5 +1,5 @@
 const API_URL = window.location.origin.includes('localhost') 
-  ? 'http://localhost:3000/api' 
+  ? `http://localhost:${process.env.SERVER_PORT}/api` 
   : '/api';
 // UI Elements
 const authModal = document.getElementById('authModal');
@@ -114,7 +114,7 @@ async function init() {
     const res = await fetch(`${API_URL}/auth-status`);
     const { initialized } = await res.json();
     if (!initialized) {
-        await showAlert('warning', 'First start', "Please setup a password (We are using a basic security approach: do not reuse any password).");
+        await showAlert('warning', 'First start', "Please setup a password (Do not reuse any of your passwords).");
         const p = await requestPassword();
         await fetch(`${API_URL}/setup-password`, {
             method: 'POST',
