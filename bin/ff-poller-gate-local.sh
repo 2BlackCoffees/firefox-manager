@@ -15,12 +15,15 @@ log "Starting Timegate Poller (Interval: ${POLL_INTERVAL}s)..."
 
 while true; do
     # Fetch status from Vercel
+    echo "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/poll\""
     RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/poll")
     
     # Check if curl failed
     if [ $? -ne 0 ]; then
         log "Network error. Retrying in ${POLL_INTERVAL}s..."
     else
+        echo "RESPONSE=$RESPONSE"
+
         STATUS=$(echo "$RESPONSE" | jq -r '.status')
 
         # Only act if the status has changed
