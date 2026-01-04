@@ -64,7 +64,7 @@ npm install
 Before building, update the project metadata:
 
 1. Open `package.json`.
-2. Change the value timegate in the `"name": "timegate"` field to something hard to guess.
+2. Change the value timegate in the `"name": "timegate"` field to something with a high enthropy.
 
 ---
 
@@ -94,9 +94,10 @@ vercel env remove DATABASE_URL production
 
 3. **Deploy:**
 ```bash
-npx vercel@latest deploy --prod --force
+npx vercel@latest deploy --prod --force 
 ```
-Once deployment is over, vercel will provide the alias to the dns addres address of the endpoint. 
+
+Once deployment is over, `Vercel` will provide the alias to the dns addres address of the endpoint. 
 Copy this alias that will be needed as explained in the main `README.md` file.
 4. **Security (Bypass Secret):**
 To secure your deployments, navigate to your Vercel Project Settings > **Deployment Protection**. Ensure Vercel Authentication is enabled and create your `TIMEGATE_BYPASS_SECRET`.

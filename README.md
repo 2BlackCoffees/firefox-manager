@@ -43,7 +43,7 @@ If you intend to control Firefox remotely via the cloud application, you must co
 
 ```bash
 # Sensitive API Info
-TIMEGATE_API_URL="Your project-name.vercel.app alias"
+TIMEGATE_API_URL="Your project-name.vercel.app alias" # WITHOUT A TRAILING SLASH!!!!
 TIMEGATE_BYPASS_SECRET="Your TIMEGATE_BYPASS_SECRET"
 
 ```
@@ -102,9 +102,17 @@ Check starter in  `$HOME/ff-starter.log`
 ```bash
 tail -f $HOME/ff-starter.log
 ```
-When using the Web Interface, check:
+**When using the Web Interface**, check:
 ```bash
 tail -f /var/log/ff-poller-gate.log
+```
+And
+```bash
+sudo journalctl -u ff-poller-gate -f
+```
+And
+```bash
+firefox-manager/bin/ff-poller-gate-local.sh
 ```
 ## Additional troubleshooting
 ```bash
