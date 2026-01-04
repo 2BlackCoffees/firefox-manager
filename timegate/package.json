@@ -1,5 +1,5 @@
 {
-  "name": "v7q.m9_2p-n4b8.x1w_5z7k-r3j9.t6m_0v2n.p8q-w5x1.z9",
+  "name": "timegate",
   "version": "1.0.0",
   "scripts": {
     "start": "node src/server/server.js",
