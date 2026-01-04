@@ -15,7 +15,7 @@ log "Starting Timegate Poller (Interval: ${POLL_INTERVAL}s)..."
 
 while true; do
     # Fetch status from Vercel
-    echo "Executing: url -s -H x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET $TIMEGATE_API_URL/api/poll"
+    echo "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/poll\""
     RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/poll")
 
     # Check if curl failed
