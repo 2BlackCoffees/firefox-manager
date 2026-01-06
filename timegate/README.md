@@ -20,7 +20,7 @@ sudo apt update && sudo apt install postgresql-client
 1. Log in to [Neon.tech](https://neon.tech) and create a new project.
 2. From the **Dashboard**, click on connect and copy your **Connection String** with the password.
 
-5. Start psql with the connection string and create the schemas as stored in `firefox-manager/timegate/data/schema.sql`
+5. Start psql '<your connection string>' (Single quotes are important) and create the schemas as stored in `firefox-manager/timegate/data/schema.sql`
 
 
 ---
