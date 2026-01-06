@@ -10,21 +10,36 @@ const modalHeader = document.getElementById('modalHeader');
 
 let pendingAction = null;
 
+
+    function showModal(message) {
+        authModal.style.display = 'flex';
+        modalInput.value = '';
+        modalHeader.textContent = message;
+        modalInput.classList.remove('shake');
+        
+        // Timeout ensures the element is visible before focusing
+        setTimeout(() => {
+            modalInput.focus();
+        }, 10);
+    }
+
+    function closeModal() {
+        authModal.style.display = 'none';
+        modalInput.classList.remove('shake');
+    }
+
+
 // --- Modal Logic ---
 function requestPassword(message = "ACCESS KEY REQUIRED") {
     return new Promise((resolve) => {
-        authModal.style.display = 'flex';
-        modalInput.value = '';
-        modalHeader.textContent = "☯ " + message.toUpperCase();
-        modalInput.focus();
+        showModal("☯ " + message.toUpperCase());
 
         modalConfirm.onclick = () => {
             const val = modalInput.value;
-            authModal.style.display = 'none';
             resolve(val);
         };
         modalCancel.onclick = () => {
-            authModal.style.display = 'none';
+            closeModal();
             resolve(null);
         };
     });
@@ -68,6 +83,7 @@ async function secureApi(path, method, body) {
 
     if (res.status === 401) await showAlert('error', 'Security issue', "Invalid password used.");
     else if (res.ok) {
+        closeModal();
         await showAlert('info', 'Action Successful', "Action completed successfully.");
         loadHistory();
     }
@@ -111,6 +127,10 @@ document.getElementById('changePassBtn').onclick = async () => {
 
 // --- Initialization ---
 async function init() {
+
+    loadTargets(); // Add this line
+    loadHistory();
+
     const res = await fetch(`${API_URL}/auth-status`);
     const { initialized } = await res.json();
     if (!initialized) {
@@ -129,6 +149,13 @@ async function init() {
             event.preventDefault(); 
             // Trigger the click event on the confirm button
             modalConfirm.click();
+        }
+    });
+    modalCancel.addEventListener('click', closeModal);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && authModal.style.display !== 'none') {
+            closeModal();
         }
     });
 }
@@ -168,5 +195,71 @@ async function loadHistory() {
         </div>
     `).join('');
 }
+
+// Update this function in app.js
+async function loadTargets() {
+    const res = await fetch(`${API_URL}/targets`);
+    const targets = await res.json();
+    const container = document.getElementById('siteSelector');
+    
+    container.innerHTML = targets.map(site => `
+        <div class="site-btn-wrapper" style="position:relative; display:inline-block; margin-right:10px; margin-bottom:10px;">
+            <label class="site-btn">
+                <input type="checkbox" value="${site.address}">
+                <span>${site.name}</span>
+            </label>
+            <button class="delete-target-btn" onclick="deleteTarget(${site.id}, '${site.name}')">✕</button>
+        </div>
+    `).join('');
+}
+
+// Add this new function
+window.deleteTarget = async (id, name) => {
+    const confirmDelete = await requestPassword(`DELETE ${name.toUpperCase()}?`);
+    if (!confirmDelete) return;
+
+    const res = await fetch(`${API_URL}/targets/${id}`, {
+        method: 'DELETE',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': confirmDelete 
+        }
+    });
+
+    if (res.ok) {
+        await showAlert('info', 'Target Neutralized', `${name} has been removed.`);
+        loadTargets();
+    } else {
+        await showAlert('error', 'Action Failed', "Unauthorized access.");
+    }
+};
+
+document.getElementById('addNewTargetBtn').onclick = async () => {
+    const name = document.getElementById('newSiteName').value.trim();
+    const address = document.getElementById('newSiteAddress').value.trim();
+
+    if (!name || !address) {
+        return showAlert('error', 'Missing Data', "Please provide both a name and an address.");
+    }
+
+    // Reuse your existing secureApi logic or call fetch directly with auth
+    const key = await requestPassword("AUTHORIZE NEW TARGET");
+    if (!key) return;
+
+    const res = await fetch(`${API_URL}/targets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': key },
+        body: JSON.stringify({ name, address })
+    });
+
+    if (res.ok) {
+        document.getElementById('newSiteName').value = '';
+        document.getElementById('newSiteAddress').value = '';
+        await showAlert('info', 'Target Added', `${name} is now in your mission list.`);
+        loadTargets();
+    } else {
+        await showAlert('error', 'Unauthorized', "Invalid password.");
+    }
+};
 
 init();

@@ -149,6 +149,12 @@ input[type="password"] {
     border-color: var(--cyan);
 }
 
+.add-site-input {
+    font-family: 'Orbitron';
+    font-size: 1.2rem;
+    color: #BF00FF;
+    white-space: nowrap;
+}
 .unit-label {
     font-family: 'Orbitron';
     font-size: 1.2rem;
@@ -249,3 +255,54 @@ input[type="password"] {
     color: #e0e0e0;
     line-height: 1.5;
 }
+
+.dual-input {
+    display: flex;
+    gap: 10px;
+}
+.dual-input input {
+    flex: 1;
+}
+
+.site-btn {
+    position: relative;
+    display: inline-block;
+}
+
+.delete-target-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.delete-target-btn:hover {
+    opacity: 1;
+    box-shadow: 0 0 8px var(--red);
+}
+
+/* Shake Animation for incorrect password */
+    .shake {
+        animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        border: 1px solid #ff4d4d !important;
+    }
+
+    @keyframes shake {
+        10%, 90% { transform: translate3d(-1px, 0, 0); }
+        20%, 80% { transform: translate3d(2px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        40%, 60% { transform: translate3d(4px, 0, 0); }
+    }

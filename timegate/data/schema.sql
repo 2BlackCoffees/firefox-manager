@@ -22,3 +22,16 @@ CREATE TABLE IF NOT EXISTS settings (
     key VARCHAR(50) UNIQUE,
     value TEXT -- This will store the hashed password
 );
+
+CREATE TABLE targets (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    address TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Optional: Seed with your original targets
+INSERT INTO targets (name, address) VALUES 
+('Youtube', 'youtube.com'),
+('ChatGPT', 'chatgpt.com'),
+('WhatsApp', 'web.whatsapp.com');

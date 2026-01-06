@@ -127,5 +127,42 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+
+
+// Get all saved site targets
+app.get('/api/targets', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM targets ORDER BY name ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Add a new site target
+app.post('/api/targets', checkAuth, async (req, res) => {
+    const { name, address } = req.body;
+    try {
+        const result = await pool.query(
+            'INSERT INTO targets (name, address) VALUES ($1, $2) RETURNING *',
+            [name, address]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+app.delete('/api/targets/:id', checkAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM targets WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Crucial: Export the app for Vercel's serverless handler
 module.exports = app;
