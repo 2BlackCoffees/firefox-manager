@@ -1,3 +1,5 @@
+
+
 :root {
     --cyan: #00f2ff;
     --red: #ff003c;
@@ -13,23 +15,27 @@ body {
     font-family: 'Rajdhani', sans-serif;
     display: flex;
     justify-content: center;
+    min-height: 100vh;
 }
 
 .background-overlay {
     position: fixed;
     inset: 0;
     background: linear-gradient(rgba(5, 5, 5, 0.9), rgba(5, 5, 5, 0.95)),
-        url('assets/ninja-bg.png') no-repeat center center fixed;
+        url('assets/ninja-bg.png');
     background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     z-index: -1;
 }
 
 #app {
     width: 100%;
     max-width: 850px;
-    padding: 20px;
+    padding: 15px; /* Reduced padding for mobile */
     box-sizing: border-box;
 }
+
 
 header {
     padding: 10px 0;
@@ -45,12 +51,12 @@ header {
 .ninja-layout {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
 }
 
 /* Widget Structure */
 .widget-row {
-    padding: 25px;
+    padding: 20px;
     width: 100%;
     box-sizing: border-box;
 }
@@ -58,6 +64,7 @@ header {
 .glass {
     background: var(--glass);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px); /* Support for Safari */
     border: 1px solid var(--border);
     border-radius: 8px;
 }
@@ -84,9 +91,12 @@ h3 {
 
 .site-btn span {
     border: 1px solid #333;
-    padding: 10px 20px;
+    padding: 12px 18px;
     border-radius: 4px;
     cursor: pointer;
+    display: inline-block;
+    font-size: 0.9rem;
+    white-space: nowrap;
     transition: 0.3s;
 }
 
@@ -109,9 +119,11 @@ input[type="password"] {
     background: #000;
     border: 1px solid #333;
     color: var(--cyan);
-    padding: 15px;
+    padding: 12px;
     border-radius: 4px;
     font-family: 'Orbitron';
+    width: 100%; /* Ensure full width on mobile */
+    box-sizing: border-box;
 }
 
 .btn-pin {
@@ -205,16 +217,16 @@ input[type="password"] {
 
 /* History */
 .history-list {
-    max-height: 250px;
+    max-height: 300px;
     overflow-y: auto;
+    font-size: 0.8rem;
 }
 
 .log-item {
-    border-bottom: 1px solid #222;
-    padding: 12px 0;
-    font-size: 0.85rem;
-    display: flex;
-    justify-content: space-between;
+    flex-direction: column; /* Stack logs on very small screens */
+    gap: 5px;
+    padding: 10px 0;
+
 }
 
 /* Modal */
@@ -232,7 +244,8 @@ input[type="password"] {
     background: #0a0a0a;
     border: 1px solid var(--cyan);
     padding: 30px;
-    width: 350px;
+    width: 90%; /* Responsive width */
+    max-width: 350px;
     border-radius: 8px;
 }
 
@@ -258,6 +271,7 @@ input[type="password"] {
 
 .dual-input {
     display: flex;
+    flex-direction: column; /* Stack inputs on mobile */
     gap: 10px;
 }
 .dual-input input {
@@ -292,6 +306,24 @@ input[type="password"] {
 .delete-target-btn:hover {
     opacity: 1;
     box-shadow: 0 0 8px var(--red);
+}
+
+@media (min-width: 600px) {
+    .dual-input {
+        flex-direction: row;
+    }
+    .log-item {
+        flex-direction: row;
+    }
+    .site-btn span:hover {
+        border-color: var(--cyan);
+        box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+    }
+    
+    .btn-cyan:hover {
+        filter: brightness(1.2);
+        box-shadow: 0 0 20px var(--cyan);
+    }
 }
 
 /* Shake Animation for incorrect password */
