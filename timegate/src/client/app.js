@@ -36,6 +36,7 @@ function requestPassword(message = "ACCESS KEY REQUIRED") {
 
         modalConfirm.onclick = () => {
             const val = modalInput.value;
+            closeModal();
             resolve(val);
         };
         modalCancel.onclick = () => {
