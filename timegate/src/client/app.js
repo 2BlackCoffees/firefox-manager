@@ -123,6 +123,14 @@ async function init() {
         });
     }
     loadHistory();
+    modalInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            // Prevent the default behavior (like form submission) 
+            event.preventDefault(); 
+            // Trigger the click event on the confirm button
+            modalConfirm.click();
+        }
+    });
 }
 
 function formatFullCreationString(selectedSites, isoTimestamp, durationMins) {
