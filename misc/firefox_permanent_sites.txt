@@ -1,5 +1,4 @@
 wikipedia.org
-wikipedia.org
 wikipedia.com
 wikipedia.de
 wikipedia.fr
@@ -25,3 +24,4 @@ wikipedia.uk
 france24.com
 lemonde.fr
 1090012w.index-education.net
+quizlet.com
