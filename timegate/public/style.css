@@ -8,6 +8,10 @@
     --border: rgba(255, 255, 255, 0.15);
 }
 
+header {
+    padding: 40px 0 10px 0; /* Adds extra room at the top for the phone's clock */
+}
+
 body {
     margin: 0;
     background-color: var(--bg-dark);
