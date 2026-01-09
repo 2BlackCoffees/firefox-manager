@@ -66,11 +66,11 @@ header {
 }
 
 .glass {
-    background: var(--glass);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px); /* Support for Safari */
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background: rgba(10, 10, 10, 0.5); /* Semi-transparent */
+    backdrop-filter: blur(15px); /* This makes the ninja background look "frosted" */
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(0, 242, 255, 0.2); /* Subtle cyan glow on the edge */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
 }
 
 h3 {
@@ -239,7 +239,7 @@ input[type="password"] {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
+    width: 100vw;
     height: 100vh;
     background: rgba(0, 0, 0, 0.6); /* Darken background */
     backdrop-filter: blur(10px); /* Blur the buttons underneath */
