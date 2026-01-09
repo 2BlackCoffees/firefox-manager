@@ -103,3 +103,17 @@ Copy this alias that will be needed as explained in the main `README.md` file.
 To secure your deployments, navigate to your Vercel Project Settings > **Deployment Protection**. Ensure Vercel Authentication is enabled and create your `TIMEGATE_BYPASS_SECRET`.
 
 In the main README.md file, this value will be require to properly bind the backend with the local linux computer.
+
+# Create a launch icon on your mobile
+## iPhone (iOS Safari)
+* Open Safari and navigate to your web app's URL.
+* Tap the Share button (the square with an arrow pointing up) at the bottom center.
+* Scroll down and tap "Add to Home Screen."
+* Give it a name (e.g., "TimeGate") and tap Add.
+* The icon will now appear on your home screen.
+
+## Android (Chrome)
+* Open Chrome and navigate to your web app's URL.
+* Tap the three vertical dots (⋮) in the top right corner.
+* Tap "Install app" or "Add to Home screen."
+* Confirm by tapping Add.
