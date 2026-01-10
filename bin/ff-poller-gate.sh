@@ -60,10 +60,9 @@ log "Starting Timegate Poller (Interval: ${POLL_INTERVAL}s)..."
 
 while true; do
     CURRENT_TIME=$(date +%T)
-    NOW=$(date +%s
+    NOW=$(date +%s)
 
-
-# --- Step 1: Periodically Sync Global Settings ---
+    # --- Step 1: Periodically Sync Global Settings ---
     if (( NOW - LAST_SETTINGS_SYNC > SETTINGS_SYNC_INTERVAL )); then
         sync_global_settings
         LAST_SETTINGS_SYNC=$NOW
