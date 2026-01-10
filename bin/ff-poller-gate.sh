@@ -17,7 +17,8 @@ mkdir -p "$CONFIG_DIR"
 # Defaults
 MIN_START_TIME="07:00:00"
 MAX_START_TIME="21:00:00"
-LAST_UPDATE="1970-01-01T00:00:00Z"
+SETTINGS_SYNC_INTERVAL=300 # Sync global hours every 5 minutes
+LAST_SETTINGS_SYNC=0
 
 # 1. Load persisted values or set defaults
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
@@ -26,13 +27,53 @@ LAST_UPDATE="1970-01-01T00:00:00Z"
 to_seconds() {
     date -d "$1" +%s
 }
+
+sync_global_settings() {
+    log "Syncing global time settings..."
+    echo "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/settings/time\""
+    RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/settings/time")
+    
+    if [ $? -eq 0 ] && [ "$RESPONSE" != "" ]; then
+
+        # Parse the response (Assumes jq is installed for JSON parsing)
+        NEW_MIN=$(echo "$RESPONSE" | jq -r '.min_start_time // empty')
+        NEW_MAX=$(echo "$RESPONSE" | jq -r '.max_start_time // empty')
+
+        # Update and Persist if new values are provided
+        UPDATE_NEEDED=false
+        if [[ -n "$NEW_MIN" ]]; then MIN_START_TIME=$NEW_MIN; UPDATE_NEEDED=true; fi
+        if [[ -n "$NEW_MAX" ]]; then MAX_START_TIME=$NEW_MAX; UPDATE_NEEDED=true; fi
+
+        if [ "$UPDATE_NEEDED" = true ]; then
+            echo "MIN_START_TIME=\"$MIN_START_TIME\"" > "$CONFIG_FILE"
+            echo "MAX_START_TIME=\"$MAX_START_TIME\"" >> "$CONFIG_FILE"
+            echo "Config updated: Min=$MIN_START_TIME, Max=$MAX_START_TIME"
+        fi
+
+        log "Global Hours Updated: $MIN_START_TIME to $MAX_START_TIME"
+    else
+        log "Failed to sync global settings. Using cached: $MIN_START_TIME"
+    fi
+}
+
 log "Starting Timegate Poller (Interval: ${POLL_INTERVAL}s)..."
 
 while true; do
     CURRENT_TIME=$(date +%T)
-    NOW=$(date +%s)
+    NOW=$(date +%s
+
+
+# --- Step 1: Periodically Sync Global Settings ---
+    if (( NOW - LAST_SETTINGS_SYNC > SETTINGS_SYNC_INTERVAL )); then
+        sync_global_settings
+        LAST_SETTINGS_SYNC=$NOW
+    fi
+
+    # --- Step 2: Time Window Enforcement ---
+    CURRENT_TIME_STR=$(date +%T)
     MIN_SEC=$(to_seconds "$MIN_START_TIME")
     MAX_SEC=$(to_seconds "$MAX_START_TIME")
+
 
     # --- Case 1: Before Minimum Time ---
     if [[ "$NOW" -lt "$MIN_SEC" ]]; then
@@ -51,33 +92,12 @@ while true; do
 
         # --- Case 3: Within Allowed Window ---
         # Fetch status from Vercel
-        echo "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/poll?last_update=$LAST_UPDATE\""
-        RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/poll?last_update=$LAST_UPDATE")
+        echo "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/poll\""
+        RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/poll")
         # Check if curl failed
         if [ $? -ne 0 ]; then
             log "Network error. Received: $RESPONSE Retrying in ${POLL_INTERVAL}s..."
         else
-            # Parse the response (Assumes jq is installed for JSON parsing)
-            NEW_MIN=$(echo "$RESPONSE" | jq -r '.min_start_time // empty')
-            NEW_MAX=$(echo "$RESPONSE" | jq -r '.max_start_time // empty')
-            NEW_TS=$(echo "$RESPONSE" | jq -r '.last_update // empty')
-
-            # Update and Persist if new values are provided
-            if [[ -n "$NEW_TS" ]]; then
-                MIN_START_TIME=$NEW_MIN
-                MAX_START_TIME=$NEW_MAX
-                LAST_UPDATE=$NEW_TS
-                
-                # Persist to file
-                cat <<EOF > "$CONFIG_FILE"
-MIN_START_TIME="$MIN_START_TIME"
-MAX_START_TIME="$MAX_START_TIME"
-LAST_UPDATE="$LAST_UPDATE"
-EOF
-                echo "Config synchronized: Min=$MIN_START_TIME - Max=$MAX_START_TIME - LastUpdate=$LAST_UPDATE"
-            fi
-
-
             STATUS=$(echo "$RESPONSE" | jq -r '.status')
 
             # Only act if the status has changed
