@@ -7,26 +7,44 @@ const modalInput = document.getElementById('modalInput');
 const modalConfirm = document.getElementById('modalConfirm');
 const modalCancel = document.getElementById('modalCancel');
 const modalHeader = document.getElementById('modalHeader');
+const updateTimeBtn = document.getElementById('updateTimeBtn');
 
 let pendingAction = null;
 
-
-    function showModal(message) {
-        authModal.style.display = 'flex';
-        modalInput.value = '';
-        modalHeader.textContent = message;
-        modalInput.classList.remove('shake');
+async function loadGlobalSettings() {
+    try {
+        const res = await fetch(`${API_URL}/settings/time`);
+        if (!res.ok) throw new Error("Settings fetch failed");
         
-        // Timeout ensures the element is visible before focusing
-        setTimeout(() => {
-            modalInput.focus();
-        }, 10);
+        const data = await res.json();
+        
+        // Map DB fields to the HTML Input elements
+        if (data.min_start_time) {
+            document.getElementById('globalStart').value = data.min_start_time;
+        }
+        if (data.max_start_time) {
+            document.getElementById('globalEnd').value = data.max_start_time;
+        }
+    } catch (e) {
+        console.error("Error loading global settings:", e);
     }
+}
 
-    function closeModal() {
-        authModal.style.display = 'none';
-        modalInput.classList.remove('shake');
-    }
+function showModal(message) {
+    authModal.style.display = 'flex';
+    modalInput.value = '';
+    modalHeader.textContent = message;
+    modalInput.classList.remove('shake');
+    
+    // Timeout ensures the element is visible before focusing
+    setTimeout(() => {
+        modalInput.focus();
+    }, 10);
+}
+function closeModal() {
+    authModal.style.display = 'none';
+    modalInput.classList.remove('shake');
+}
 
 
 // --- Modal Logic ---
@@ -125,12 +143,34 @@ document.getElementById('changePassBtn').onclick = async () => {
     if (res.ok) await showAlert('info', 'Password Changed Successfully', "Password has been successfully changed.");
     else await showAlert('error', 'Password not changed',"Password Verification Failed.");
 };
+updateTimeBtn.onclick = async () => {
+    const start = document.getElementById('globalStart').value;
+    const end = document.getElementById('globalEnd').value;
+
+    const key = await requestPassword("AUTHORIZE TIME UPDATE");
+    if (!key) return;
+
+    const res = await fetch(`${API_URL}/settings/time`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': key },
+        body: JSON.stringify({ min_start_time: start, max_start_time: end })
+    });
+
+    if (res.ok) {
+        await showAlert('info', 'Settings Updated', "Global time settings have been updated.");
+    } else {
+        await showAlert('error', 'Update Failed', "Unauthorized access.");
+    }
+}
+
+
 
 // --- Initialization ---
 async function init() {
 
     loadTargets(); // Add this line
     loadHistory();
+    loadGlobalSettings();
 
     const res = await fetch(`${API_URL}/auth-status`);
     const { initialized } = await res.json();

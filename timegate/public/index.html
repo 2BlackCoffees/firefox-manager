@@ -74,12 +74,42 @@
 
             <section class="widget-row glass centered-widget">
                 <h3>⚙ SYSTEM ADMINISTRATION</h3>
+                
+                <div class="admin-group">
+                    <label class="section-label">GLOBAL ACCESS HOURS</label>
+                    <div class="horizontal-block">
+                        <div class="time-input-row">
+                            <div class="input-wrapper">
+                                <label class="mini-label">START ALLOWED</label>
+                                <input type="time" id="globalStart">
+                            </div>
+                            <div class="input-wrapper">
+                                <label class="mini-label">END ALLOWED</label>
+                                <input type="time" id="globalEnd">
+                            </div>
+                        </div>
+                        <button id="updateTimeBtn" class="btn-ghost full-width">UPDATE HOURS</button>
+                    </div>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0; width: 100%;">
+
+                <div class="horizontal-block">
+                    <div class="admin-btns">
+                        <button id="stopBtn" class="btn-danger full-width">EMERGENCY STOP</button>
+                        <button id="changePassBtn" class="btn-ghost full-width">PASSWORD UPDATE</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- section class="widget-row glass centered-widget">
+                <h3>⚙ SYSTEM ADMINISTRATION</h3>
                 <div class="horizontal-block">
                     <div class="admin-btns"> <button id="stopBtn" class="btn-danger full-width">EMERGENCY STOP</button>
                         <button id="changePassBtn" class="btn-ghost full-width">PASSWORD UPDATE</button>
                     </div>
                 </div>
-            </section>
+            </section -->
 
             <section class="logs-section">
                 <div class="card glass logs-card">

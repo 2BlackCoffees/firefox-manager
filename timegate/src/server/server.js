@@ -104,8 +104,36 @@ app.get('/api/history', async (req, res) => {
     }
 });
 
+// Get current global time settings
+app.get('/api/settings/time', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT min_start_time, max_start_time FROM global_settings WHERE id = 1');
+        if (result.rows.length > 0) {
+            res.json(result.rows[0]);
+        } else {
+            res.json({ min_start_time: '08:00', max_start_time: '21:00' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update global time settings (Protected)
+app.post('/api/settings/time', checkAuth, async (req, res) => {
+    const { min_start_time, max_start_time } = req.body;
+    try {
+        await pool.query(
+            'UPDATE global_settings SET min_start_time = $1, max_start_time = $2, updated_at = NOW() WHERE id = 1', 
+            [min_start_time, max_start_time]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+// Polling endpoint for Firefox extension
 app.get('/api/poll', async (req, res) => {
-    const allowance = await pool.query('SELECT * FROM allowances ORDER BY created_at ASC LIMIT 1');
+    //const allowance = await pool.query('SELECT * FROM allowances ORDER BY created_at ASC LIMIT 1');
     
     const result = await pool.query('DELETE FROM allowances WHERE id = (SELECT id FROM allowances ORDER BY created_at ASC LIMIT 1) RETURNING *');
     if (result.rows.length > 0) {

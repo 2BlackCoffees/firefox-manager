@@ -344,6 +344,47 @@ input[type="password"] {
     }
 }
 
+.section-label {
+    color: #777;
+    font-size: 0.75rem;
+    font-family: 'Orbitron';
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    display: block;
+    text-align: center;
+}
+
+.input-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.mini-label {
+    font-size: 0.65rem;
+    color: var(--cyan);
+    margin-bottom: 5px;
+    font-family: 'Orbitron';
+}
+
+/* Ensure time inputs look good */
+input[type="time"] {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--cyan);
+    padding: 10px;
+    border-radius: 4px;
+    font-family: 'Orbitron';
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+/* Fix for calendar icon color in Chrome */
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) sepia(1) saturate(5) hue-rotate(140deg);
+    cursor: pointer;
+}
 /* Shake Animation for incorrect password */
     .shake {
         animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;

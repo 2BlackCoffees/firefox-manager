@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS history (
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
 CREATE TABLE IF NOT EXISTS settings (
     id SERIAL PRIMARY KEY,
     key VARCHAR(50) UNIQUE,
@@ -35,3 +36,15 @@ INSERT INTO targets (name, address) VALUES
 ('Youtube', 'youtube.com'),
 ('ChatGPT', 'chatgpt.com'),
 ('WhatsApp', 'web.whatsapp.com');
+
+CREATE TABLE IF NOT EXISTS global_settings (
+    id SERIAL PRIMARY KEY,
+    min_start_time TIME NOT NULL DEFAULT '07:00:00',
+    max_start_time TIME NOT NULL DEFAULT '21:00:00',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed the initial row
+INSERT INTO global_settings (id, min_start_time, max_start_time, updated_at) 
+VALUES (1, '07:00:00', '21:00:00', CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO NOTHING;
