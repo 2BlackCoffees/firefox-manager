@@ -8,6 +8,9 @@ const modalConfirm = document.getElementById('modalConfirm');
 const modalCancel = document.getElementById('modalCancel');
 const modalHeader = document.getElementById('modalHeader');
 const updateTimeBtn = document.getElementById('updateTimeBtn');
+const settingsModal = document.getElementById('settingsModal');
+const openSettingsBtn = document.getElementById('openSettingsBtn');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 
 let pendingAction = null;
 
@@ -162,13 +165,25 @@ updateTimeBtn.onclick = async () => {
         await showAlert('error', 'Update Failed', "Unauthorized access.");
     }
 }
+openSettingsBtn.onclick = async () => {
+    const key = await requestPassword("ACCESS SYSTEM SETTINGS");
+    if (!key) return;
+    
+    // Verify key or just show (using existing secure logic)
+    settingsModal.style.display = 'flex';
+    loadTargets(true); // Load targets with "X" for modal
+};
 
+closeSettingsBtn.onclick = () => {
+    settingsModal.style.display = 'none';
+    loadTargets(false); // Reload main list without "X"
+};
 
 
 // --- Initialization ---
 async function init() {
 
-    loadTargets(); // Add this line
+    loadTargets(false);
     loadHistory();
     loadGlobalSettings();
 
@@ -238,20 +253,31 @@ async function loadHistory() {
 }
 
 // Update this function in app.js
-async function loadTargets() {
+async function loadTargets(isManagementMode = false) {
     const res = await fetch(`${API_URL}/targets`);
     const targets = await res.json();
     const container = document.getElementById('siteSelector');
     
-    container.innerHTML = targets.map(site => `
-        <div class="site-btn-wrapper" style="position:relative; display:inline-block; margin-right:10px; margin-bottom:10px;">
+    if (isManagementMode) {
+        // Render inside the Settings Modal with delete buttons
+        const container = document.getElementById('modalSiteList');
+        container.innerHTML = targets.map(site => `
+            <div class="modal-site-item">
+                <span>${site.name} (${site.address})</span>
+                <button class="btn-danger" style="padding: 5px 10px; font-size: 10px;" 
+                    onclick="deleteTarget(${site.id}, '${site.name}')">REMOVE</button>
+            </div>
+        `).join('');
+    } else {
+        // Render on Main Page (Selection Only)
+        const container = document.getElementById('siteSelector');
+        container.innerHTML = targets.map(site => `
             <label class="site-btn">
                 <input type="checkbox" value="${site.address}">
                 <span>${site.name}</span>
             </label>
-            <button class="delete-target-btn" onclick="deleteTarget(${site.id}, '${site.name}')">✕</button>
-        </div>
-    `).join('');
+        `).join('');
+    }
 }
 
 // Add this new function
@@ -269,7 +295,7 @@ window.deleteTarget = async (id, name) => {
 
     if (res.ok) {
         await showAlert('info', 'Target Neutralized', `${name} has been removed.`);
-        loadTargets();
+        loadTargets(true);
     } else {
         await showAlert('error', 'Action Failed', "Unauthorized access.");
     }
@@ -297,7 +323,7 @@ document.getElementById('addNewTargetBtn').onclick = async () => {
         document.getElementById('newSiteName').value = '';
         document.getElementById('newSiteAddress').value = '';
         await showAlert('info', 'Target Added', `${name} is now in your mission list.`);
-        loadTargets();
+        loadTargets(true);
     } else {
         await showAlert('error', 'Unauthorized', "Invalid password.");
     }

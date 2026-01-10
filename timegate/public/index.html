@@ -1,22 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <title>TimeGate // NINJA STEALTH</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="apple-touch-startup-image" href="assets/time-gate-icon.png">
-    <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="assets/time-gate-icon.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#050505">
-    <title>TimeGate // NINJA STEALTH</title>
+    <link rel="apple-touch-startup-image" href="assets/time-gate-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/time-gate-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/time-gate-icon-web.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/time-gate-icon-web.png">
 </head>
 <body>
+
+
+    <div id="settingsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card settings-card">
+            <div class="modal-header">⚙ SYSTEM SETTINGS</div>
+            <div class="modal-body">
+                <section class="admin-group">
+                    <label class="section-label">MANAGE TARGETS</label>
+                    <div id="modalSiteList" class="modal-site-list"></div>
+                    <div class="dual-input">
+                        <input type="text" id="newSiteName" placeholder="Name (e.g. ChatGPT)">
+                        <input type="text" id="newSiteAddress" placeholder="Address (chatgpt.com)">
+                    </div>
+                    <button id="addNewTargetBtn" class="btn-cyan full-width">✚ ADD SITE</button>
+                </section>
+
+                <hr class="divider">
+
+                <button id="changePassBtn" class="btn-danger full-width">UPDATE PASSWORD</button>
+            </div>
+            <div class="modal-btns">
+                <button id="closeSettingsBtn" class="btn-cyan full-width">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
     <div id="authModal" class="modal-overlay" style="display: none;">
         <div class="modal-card">
             <div class="modal-header" id="modalHeader">☯ ACCESS KEY REQUIRED</div>
@@ -46,19 +72,12 @@
         </header>
 
         <main class="ninja-layout">
+
             <section class="widget-row glass">
                 <h3>⚔ MISSION TARGETS</h3>
                 <div id="siteSelector" class="site-selector"></div>
-                
-                <div class="full-width-input-group">
-                    <div class="dual-input">
-                        <input type="text" id="newSiteName" class="add-site-input" placeholder="Site Name (e.g. Youtube)">
-                        <input type="text" id="newSiteAddress" class="add-site-input" placeholder="Address (youtube.com)">
-                    </div>
-                    <button id="addNewTargetBtn" class="btn-pin">✚ ADD TO MISSION LIST</button>
-                    <hr style="border: 0; border-top: 1px solid #222; margin: 10px 0;">
-                    <input type="text" id="customSite" class="add-site-input" placeholder="One-time custom URL...">
-                </div>
+                <input type="text" id="customSite" class="add-site-input" placeholder="One-time custom URL (optional)...">
+                <button id="openSettingsBtn" class="btn-cyan     full-width">⚙ OPEN SYSTEM SETTINGS</button>
             </section>
 
             <section class="widget-row glass centered-widget">
@@ -69,47 +88,26 @@
                         <span class="unit-label">MINUTES</span>
                     </div>
                     <button id="allowBtn" class="btn-cyan full-width">GRANT PASSAGE</button>
+                    <button id="stopBtn" class="btn-danger full-width">EMERGENCY STOP</button>
+
                 </div>
             </section>
-
             <section class="widget-row glass centered-widget">
-                <h3>⚙ SYSTEM ADMINISTRATION</h3>
-                
-                <div class="admin-group">
-                    <label class="section-label">GLOBAL ACCESS HOURS</label>
-                    <div class="horizontal-block">
-                        <div class="time-input-row">
-                            <div class="input-wrapper">
-                                <label class="mini-label">START ALLOWED</label>
-                                <input type="time" id="globalStart">
-                            </div>
-                            <div class="input-wrapper">
-                                <label class="mini-label">END ALLOWED</label>
-                                <input type="time" id="globalEnd">
-                            </div>
-                        </div>
-                        <button id="updateTimeBtn" class="btn-ghost full-width">UPDATE HOURS</button>
+                <h3>⏱ ACCESS HOURS</h3>
+
+                <div class="time-input-row">
+                    <div class="input-wrapper">
+                        <label class="mini-label">START</label>
+                        <input type="time" id="globalStart">
+                    </div>
+                    <div class="input-wrapper">
+                        <label class="mini-label">END</label>
+                        <input type="time" id="globalEnd">
                     </div>
                 </div>
-
-                <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0; width: 100%;">
-
-                <div class="horizontal-block">
-                    <div class="admin-btns">
-                        <button id="stopBtn" class="btn-danger full-width">EMERGENCY STOP</button>
-                        <button id="changePassBtn" class="btn-ghost full-width">PASSWORD UPDATE</button>
-                    </div>
-                </div>
+                <button id="updateTimeBtn" class="btn-cyan full-width">UPDATE HOURS</button>
             </section>
 
-            <!-- section class="widget-row glass centered-widget">
-                <h3>⚙ SYSTEM ADMINISTRATION</h3>
-                <div class="horizontal-block">
-                    <div class="admin-btns"> <button id="stopBtn" class="btn-danger full-width">EMERGENCY STOP</button>
-                        <button id="changePassBtn" class="btn-ghost full-width">PASSWORD UPDATE</button>
-                    </div>
-                </div>
-            </section -->
 
             <section class="logs-section">
                 <div class="card glass logs-card">
