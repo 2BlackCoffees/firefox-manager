@@ -188,7 +188,9 @@ h3 {
 input[type="text"],
 input[type="number"],
 input[type="password"],
-input[type="time"] {
+input[type="time"],
+#newSiteName,
+#newSiteAddress {
     background: rgba(0, 0, 0, 0.15); /* Semi-transparent black */
     backdrop-filter: blur(5px); /* Adds a slight blur inside inputs */
     border: 1px solid var(--cyan-dark); /* Change from white to cyan-dark */
@@ -201,6 +203,21 @@ input[type="time"] {
     outline: none;             
     box-shadow: 0 0 15px rgba(0, 242, 255, 0.5);
     color: #00f2ff !important;
+}
+
+/* Below is a fix for Vercel*/
+#app #newSiteName, 
+#app #newSiteAddress,
+.settings-card #newSiteName,
+.settings-card #newSiteAddress {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid var(--cyan-neon) !important;
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.5) !important;
+    color: var(--cyan-neon) !important;
+    font-family: 'Orbitron', sans-serif !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 /* Fix for calendar icon color in Chrome */
@@ -428,7 +445,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     input[type="text"]:hover,
     input[type="number"]:hover,
     input[type="password"]:hover,
-    input[type="time"]:hover {
+    input[type="time"]:hover,
+    #newSiteName:hover,
+    #newSiteAddress:hover {
         filter: brightness(1.2);
         box-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0, 242, 255, 0.4);
         transform: translateY(-2px);
