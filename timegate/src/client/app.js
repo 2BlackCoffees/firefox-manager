@@ -166,17 +166,13 @@ updateTimeBtn.onclick = async () => {
     }
 }
 openSettingsBtn.onclick = async () => {
-    const key = await requestPassword("ACCESS SYSTEM SETTINGS");
-    if (!key) return;
-    
-    // Verify key or just show (using existing secure logic)
     settingsModal.style.display = 'flex';
-    loadTargets(true); // Load targets with "X" for modal
+    loadTargets(true); 
 };
 
 closeSettingsBtn.onclick = () => {
     settingsModal.style.display = 'none';
-    loadTargets(false); // Reload main list without "X"
+    loadTargets(false); 
 };
 
 
@@ -330,3 +326,82 @@ document.getElementById('addNewTargetBtn').onclick = async () => {
 };
 
 init();
+
+
+const canvas = document.getElementById('starCanvas');
+const ctx = canvas.getContext('2d');
+
+let stars = [];
+const starCount = 300; // Lower count looks cleaner over a background image
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+class Star {
+    constructor() {
+        this.init();
+    }
+
+    init() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 1.5 + 0.5;
+        this.speedY = Math.random() * 0.4 * (this.y > canvas.height / 2 ? -1 : +1);
+        this.speedX = Math.random() * 0.4 * (this.y > canvas.width / 2 ? -1 : +1);
+        this.opacity = Math.random() + 0.1; 
+        this.fadeSpeed = this.opacity / Math.min(canvas.width/this.speedX, canvas.height/this.speedY) ;
+        this.angle = Math.random() * Math.PI * 2;
+        this.curve = (Math.random() - 0.5) * 0.02;
+        // Match your theme colors: Cyan or Magenta
+        this.color = Math.random() > 0.5 ? "255, 255, 255" : "255, 0, 128"; 
+    }
+    update() {
+        this.angle += this.curve;
+
+        this.x += Math.cos(this.angle) * this.speedX;
+        this.y += Math.sin(this.angle) * this.speedY;
+        this.y += this.speedY;
+        this.x += this.speedX;
+        this.opacity -= this.fadeSpeed;
+
+        if (this.opacity <= 0 || this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+            this.init();
+        }
+
+    }
+    draw() {
+        ctx.beginPath();
+        let gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
+        gradient.addColorStop(0, `rgba(${this.color}, ${this.opacity})`);
+        gradient.addColorStop(1, `rgba(${this.color}, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+
+}
+
+for (let i = 0; i < starCount; i++) {
+    stars.push(new Star());
+}
+
+function animate() {
+    // Clear the canvas every frame to keep it transparent
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    stars.forEach(star => {
+        star.update();
+        star.draw();
+    });
+
+    requestAnimationFrame(animate);
+}
+
+animate();

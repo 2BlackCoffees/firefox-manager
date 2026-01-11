@@ -1,25 +1,19 @@
 
 
 :root {
-    /* 1. DARK: Deep base for panels and inputs */
     --cyan-dark: #508e91; 
-    
-    /* 2. CATCHY: The classic energetic neon */
     --cyan-neon: #00f2ff; 
-    
-    /* 3. LIGHT: "Hot" center of a neon tube (almost white) */
     --cyan-light: #10d3da25; 
-
     --bg-dark: #020808; /* Deepened to make cyan pop more */
     --glass: rgba(0, 20, 25, 0.7);
     --cyan: #00f2ff;
     --red: #ff003c;
-    --red-light: #e3cad0;
+    --red-light: #be133b25;
     --red-dark: #b2002f;
-    --magenta: #ff00ff; 
+    --gray: #d5d1d5; 
     --bg-dark: #050505;
     --glass: rgba(10, 10, 10, 0.6);
-    --border: rgba(255, 255, 255, 0.15);
+    --border: rgba(27, 150, 211, 0.15);
 }
 
 h3, .logo {
@@ -36,7 +30,7 @@ body {
     margin: 0;
     background-color: var(--bg-dark);
     color: #e0e0e0;
-    font-family: 'Rajdhani', sans-serif;
+    font-family: 'Orbitron', sans-serif;
     display: flex;
     justify-content: center;
     min-height: 100vh;
@@ -177,20 +171,60 @@ input[type="password"] {
 }
 
 #duration {
+    background: rgba(0, 0, 0, 0); /* Semi-transparent black */
+    font-family: 'Orbitron';
+    color: var(--cyan-neon);
     flex-grow: 1;
     text-align: center;
     font-size: 1.5rem;
     border-color: var(--cyan);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.5);
+    border: 1px solid rgba(0, 242, 255, 0.5) !important;
+    outline: none;             
 }
 
 .add-site-input {
+    background: rgba(0, 0, 0, 0); /* Semi-transparent black */
     font-family: 'Orbitron';
     font-size: 1.2rem;
-    color: #BF00FF;
     white-space: nowrap;
-    color: var(--magenta);
-    border-color: rgba(255, 0, 255, 0.3);
+    border-color: rgba(11, 240, 240, 0.3);
+    border: 1px solid #00f2ff !important; 
+    border-color: var(--cyan);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.5);
+    color: #00f2ff !important;
+    border: 1px solid rgba(0, 242, 255, 0.5) !important;
+    outline: none;             
 }
+
+/* Ensure time inputs look good */
+input[type="time"] {
+    background: rgba(0, 0, 0, 0.15); /* Semi-transparent black */
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
+    border: 1px solid var(--cyan-dark); /* Change from white to cyan-dark */
+    padding: 10px;
+    border-radius: 4px;
+    font-family: 'Orbitron';
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    outline: none;             
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.5);
+    color: #00f2ff !important;
+}
+
+/* Fix for calendar icon color in Chrome */
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) sepia(1) saturate(5) hue-rotate(140deg);
+    cursor: pointer;
+}
+
+.input-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
 .unit-label {
     font-family: 'Orbitron';
     font-size: 1.2rem;
@@ -231,16 +265,17 @@ input[type="password"] {
 }
 
 .btn-danger {
-    background: var(--red-dark);
+    background: var(--red-light);
     box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
-    border: 1px solid var(--red-light);
+    border: 1px solid var(--red-dark);
     color: #fff;
 }
 
 .btn-ghost {
-    background: transparent;
-    border: 1px solid #444;
-    color: #777;
+    background: var(--red-light);
+    box-shadow: 0 0 15px rgba(199, 202, 202, 0.4);
+    border: 1px solid var(--gray);
+    color: #fff;
 }
 
 /* History */
@@ -338,10 +373,7 @@ input[type="password"] {
     transition: opacity 0.2s;
 }
 
-.delete-target-btn:hover {
-    opacity: 1;
-    box-shadow: 0 0 8px var(--red);
-}
+
 
 @media (min-width: 600px) {
     .dual-input {
@@ -370,6 +402,41 @@ input[type="password"] {
         transition: all 0.2s ease;
         box-shadow: 0 0 20px var(--cyan);
     }
+
+    .btn-ghost:hover {
+        filter: brightness(1.2);
+        box-shadow: 0 0 20px var(--gray), 0 0 40px rgba(12, 13, 13, 0.4);
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
+
+    .delete-target-btn:hover {
+        opacity: 1;
+        box-shadow: 0 0 8px var(--red);
+    }
+    #allowBtn:hover span {
+        transform: scale(1.1); /* Makes the text grow slightly when you hover the button */
+    }
+    #duration:hover {
+        filter: brightness(1.2);
+        box-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0, 242, 255, 0.4);
+        transform: translateY(-2px);
+        transition: all 0.1s ease;
+    }
+    .add-site-input:hover {
+        filter: brightness(1.2);
+        box-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0, 242, 255, 0.4);
+        transform: translateY(-2px);
+        transition: all 0.1s ease;
+    }
+
+    input[type="time"]:hover {
+        filter: brightness(1.2);
+        box-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0, 242, 255, 0.4);
+        transform: translateY(-2px);
+        transition: all 0.1s ease;
+    }
+
 }
 
 .section-label {
@@ -382,11 +449,6 @@ input[type="password"] {
     text-align: center;
 }
 
-.input-wrapper {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-}
 
 .mini-label {
     font-size: 0.65rem;
@@ -395,24 +457,7 @@ input[type="password"] {
     font-family: 'Orbitron';
 }
 
-/* Ensure time inputs look good */
-input[type="time"] {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: var(--red-light);
-    padding: 10px;
-    border-radius: 4px;
-    font-family: 'Orbitron';
-    width: 100%;
-    box-sizing: border-box;
-    text-align: center;
-}
 
-/* Fix for calendar icon color in Chrome */
-input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) sepia(1) saturate(5) hue-rotate(140deg);
-    cursor: pointer;
-}
 
 
 .modal-site-list {
@@ -508,29 +553,41 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     font-size: 0.9rem;
     white-space: nowrap;
     
-    /* 1. Updated to RGBA for semi-transparency */
     background: linear-gradient(
         270deg, 
         rgba(5, 5, 5, 0.4),   /* Semi-transparent Dark */
         rgba(73, 63, 63, 0.4), /* Semi-transparent Highlight */
         rgba(5, 5, 5, 0.4)    /* Semi-transparent Dark */
     );
-    background-size: 200% 200%;
-    
-    /* 2. Changed text color for better visibility on transparency */
     color: #bbb; 
-    transition: 1s;
-    
-    /* 3. Keeping your existing animation */
-    animation: pulseGradient 5s ease infinite;
-    
-    /* 4. Added backdrop-filter (Optional) */
-    /* This makes the transparency look premium by blurring what's behind it */
+    transition: all 0.1s ease;
+        
+    /* Blurring what's behind transparency */
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }
 
-/* The Animation Logic */
+#allowBtn {
+    padding: 0;           /* Remove padding so the span can touch the edges */
+    overflow: hidden;    /* Ensures span doesn't spill over rounded corners */
+}
+
+.btn-cyan span  {
+
+
+    display: flex;        /* Flex makes centering text easy */
+    align-items: center;  /* Vertical center */
+    justify-content: center; /* Horizontal center */
+    
+    width: 100%;          /* Full width of the button */
+    height: 100%;         /* Full height of the button */
+    background: linear-gradient(45deg, #05e5f150, #09dde425);
+    
+    background-size: 800% 800%;
+    animation: pulseGradient 3s infinite;
+    min-height: 50px;
+}
+
 @keyframes pulseGradient {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -569,7 +626,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* Shake Animation for incorrect password */
     .shake {
         animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-        border: 1px solid #ff4d4d !important;
+        border: 1px solid var(--cyan-neon) !important;    
     }
 
     @keyframes shake {
@@ -578,3 +635,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
         30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
         40%, 60% { transform: translate3d(4px, 0, 0); }
     }
+#starCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1; /* Higher than background-overlay, lower than #app */
+    pointer-events: none; /* Allows you to click buttons "through" the stars */
+}
+
+/* Ensure the background overlay stays at the very bottom */
+.background-overlay {
+    z-index: -2; 
+}
