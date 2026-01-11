@@ -311,6 +311,22 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     z-index: 99999; /* Higher than everything else */
 }
 
+#customSite {
+    width: 100%;             /* Fills the container width */
+    padding: 16px;           /* Matches .btn-cyan padding */
+    box-sizing: border-box;  /* Ensures padding doesn't push width over 100% */
+    font-size: 0.9rem;       /* Matches .btn-cyan font size */
+    margin-bottom: 10px;     /* Optional: adds space between input and button */
+    
+    /* Ensure the border and color match the ninja theme */
+    border: 1px solid var(--cyan-dark);
+    color: var(--cyan-neon);
+}
+
+#updateTimeBtn {
+    margin-top: 15px; /* Adjust this number to increase or decrease the gap */
+}
+
 .modal-card {
     background: rgba(10, 10, 10, 0.5); /* Slightly more solid for readability */
     border: 2px solid var(--cyan); /* Thicker border to pop */
