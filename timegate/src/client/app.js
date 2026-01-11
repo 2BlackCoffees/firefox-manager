@@ -160,7 +160,7 @@ updateTimeBtn.onclick = async () => {
     });
 
     if (res.ok) {
-        await showAlert('info', 'Settings Updated', "Global time settings have been updated.");
+        await showAlert('info', 'Settings Updated', "Global time settings have been updated. IMPORTANT: this change will require some minutes before being reflected in your computer.");
     } else {
         await showAlert('error', 'Update Failed', "Unauthorized access.");
     }
