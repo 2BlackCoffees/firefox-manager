@@ -25,3 +25,4 @@ france24.com
 lemonde.fr
 1090012w.index-education.net
 quizlet.com
+digipad.app
