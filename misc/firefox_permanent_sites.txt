@@ -26,3 +26,6 @@ lemonde.fr
 1090012w.index-education.net
 quizlet.com
 digipad.app
+play.kahoot.it
+kahoot.it
+create.kahoot.it
