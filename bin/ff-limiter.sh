@@ -8,7 +8,9 @@ log() {
 DURATION_MINS=$1
 # Collect all arguments after the first as temporary websites
 shift
-TEMP_SITES=("$@")
+input_string="$*"
+TEMP_SITES=(${input_string//,/ })
+#TEMP_SITES=("$@")
 
 POLICIES_DIR=/etc/firefox/policies
 POLICY_FILE="$POLICIES_DIR/policies.json"
