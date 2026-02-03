@@ -148,5 +148,7 @@ if [ "$1" == "run" ]; then
     install_files
     next_steps
     test
+elif [ $1 == "update" ]; then
+    install_files
 fi
 
