@@ -107,6 +107,7 @@ In the main README.md file, this value will be require to properly bind the back
 # Create a launch icon on your mobile
 ## iPhone (iOS Safari)
 * Open Safari and navigate to your web app's URL.
+* Tap the three vertical dots (⋮) in the bottom right corner.
 * Tap the Share button (the square with an arrow pointing up) at the bottom center.
 * Scroll down and tap "Add to Home Screen."
 * Give it a name (e.g., "TimeGate") and tap Add.

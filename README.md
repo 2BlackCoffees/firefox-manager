@@ -7,20 +7,36 @@ This project provides a robust **system-wide lockdown and timer service** for Fi
 
 ## 🛡️ Child Safety & Protection Features
 
-This tool implements a "Whitelist-Only" architecture, recommended by global child safety experts as the most effective technical defense for younger users in 2025.
+Modern technology is a double-edged sword: while access to AI and the open web is essential for digital literacy in 2026, it introduces significant risks to younger users. This tool implements a **"Whitelist-Only" architecture**, recognized by safety experts as the gold standard for protecting children from unvetted content.
 
-### 1. Guarding Against "Algorithm Rabbit Holes" (YouTube)
-YouTube's recommendation engine can lead children from educational content to inappropriate "Shorts" or misleading videos.
-*   **The Solution:** Use the `ff start` command to limit YouTube time, preventing endless watching videos.
+### The Challenge
 
-### 2. Preventing AI "Jailbreaking" (ChatGPT & Generative AI)
-AI tools can generate restricted content if prompted creatively.
-*   **The Solution:** By not whitelisting AI sites permanently, you ensure children only use them under supervision during a timed session where logs are maintained.
-*   **Reference:** [OpenAI Safety Standards](openai.com) recommend parental oversight for users under 18.
+While mobile devices often have robust parental controls, desktop environments (especially Linux) can be harder to secure. Research from 2024 and 2025 highlights growing concerns regarding generative AI and child safety:
 
-### 3. Mitigating Social Media Risks (TikTok, Discord, etc.)
-These platforms pose risks of cyberbullying and predatory grooming through private messaging.
-*   **The Solution:** Do not allow access by default but only for limited time.
+However at the same time these technologies revealed to be extremely dangerous for the safety of children:
+* https://learning.nspcc.org.uk/research-resources/2025/generative-ai-childrens-safety
+* https://www.unicef.org/innocenti/stories/beyond-algorithms-three-signals-changing-ai-child-interaction
+* https://www.tandfonline.com/doi/full/10.1080/19452829.2025.2518313
+* https://www.eurekalert.org/news-releases/1091598
+* https://www.theguardian.com/media/2024/feb/01/parents-tech-ceos-us-senate-hearing
+* ...
+
+### Core Protection Layers
+
+This tool bridges the gap between digital freedom and safety through three primary pillars:
+
+| Feature | Description |
+| --- | --- |
+| **Strict Whitelisting** | Only approved domains are accessible; all other traffic is blocked at the system level. |
+| **Time Allotments** | Define "Earliest" and "Latest" usage windows to prevent late-night browsing and screen addiction. |
+| **Parental Audit Logs** | Comprehensive logging of all sessions and site requests for transparent review. |
+
+### 💻 System Compatibility
+
+To ensure deep integration with system permissions and networking, this tool is designed for:
+
+* **OS:** Linux (Debian-based preferred)
+* **Desktop Environment:** Optimized for **XUbuntu** (XFCE) for maximum operability.
 
 ---
 
