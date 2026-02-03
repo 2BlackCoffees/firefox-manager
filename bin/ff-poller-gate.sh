@@ -28,9 +28,15 @@ to_seconds() {
     date -d "$1" +%s
 }
 
+sleep_time() {
+    POLL_INTERVAL=$1
+    log "Sleeping for $POLL_INTERVAL seconds..."
+    sleep "$POLL_INTERVAL"
+}
+
 sync_global_settings() {
     log "Syncing global time settings..."
-    echo "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/settings/time\""
+    log "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/settings/time\""
     RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/settings/time")
     
     if [ $? -eq 0 ] && [ "$RESPONSE" != "" ]; then
@@ -47,7 +53,7 @@ sync_global_settings() {
         if [ "$UPDATE_NEEDED" = true ]; then
             echo "MIN_START_TIME=\"$MIN_START_TIME\"" > "$CONFIG_FILE"
             echo "MAX_START_TIME=\"$MAX_START_TIME\"" >> "$CONFIG_FILE"
-            echo "Config updated: Min=$MIN_START_TIME, Max=$MAX_START_TIME"
+            log "Config updated: Min=$MIN_START_TIME, Max=$MAX_START_TIME"
         fi
 
         log "Global Hours Updated: $MIN_START_TIME to $MAX_START_TIME"
@@ -76,16 +82,16 @@ while true; do
 
     # --- Case 1: Before Minimum Time ---
     if [[ "$NOW" -lt "$MIN_SEC" ]]; then
-        echo "Too early ($CURRENT_TIME). Waiting until $MIN_START_TIME..."
-        sleep 60
+        log "Too early ($CURRENT_TIME). Waiting until $MIN_START_TIME..."
+        sleep_time 60
         continue
 
     # --- Case 2: After Maximum Time ---
     elif [[ "$NOW" -gt "$MAX_SEC" ]]; then
-        echo "Past limit ($CURRENT_TIME). Stopping services..."
+        log "Past limit ($CURRENT_TIME). Stopping services..."
         systemctl stop "ff-limiter@*"
         # Exit or sleep until next day
-        sleep 60
+        sleep_time 60
         continue
     else 
 
