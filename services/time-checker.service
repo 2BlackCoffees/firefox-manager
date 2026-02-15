@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 # Changed from oneshot to simple
 Type=simple
-ExecStart=/usr/bin/python3 /usr/local/bin/time-checker-shutdown /etc/time_checker/schedule.conf
+ExecStart=/usr/bin/python3 /usr/local/bin/time-checker-shutdown.py
 
 # Restart Logic
 # 'always' ensures it restarts if it crashes, is killed, or exits normally

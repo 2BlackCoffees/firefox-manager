@@ -408,7 +408,7 @@ class TimeRangeChecker:
                                     start_minutes: int = self.time_to_minutes(start_time)
                                     end_minutes: int = self.time_to_minutes(end_time)
                                     time_ranges.append((start_minutes, end_minutes))
-                                    Logger.log(f"Found time range CRON :Start {start_time}, start_minutes={start_minutes} to {end_time}, end_minutes={end_minutes}")
+                                    Logger.log(f"Found time range Standard: Start {start_time}, start_minutes={start_minutes} to {end_time}, end_minutes={end_minutes}")
                             
                             for day in days:
                                 if day not in self.time_config:
