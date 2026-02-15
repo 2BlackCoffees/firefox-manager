@@ -9,14 +9,14 @@ if [ -f .env ]; then
 fi
 
 # Set a default poll interval if not defined in .env (in seconds)
-POLL_INTERVAL=2
+POLL_INTERVAL=10
 CONFIG_DIR="/var/lib/ff-limiter"
 CONFIG_FILE="$CONFIG_DIR/state.cfg"
 mkdir -p "$CONFIG_DIR"
 
 # Defaults
-MIN_START_TIME="07:00:00"
-MAX_START_TIME="21:00:00"
+MIN_START_TIME="16:00:00"
+MAX_START_TIME="21:30:00"
 SETTINGS_SYNC_INTERVAL=300 # Sync global hours every 5 minutes
 LAST_SETTINGS_SYNC=0
 
