@@ -5,6 +5,7 @@ set -e
 
 echo "=== FireFox Manager Installation ==="
 echo ""
+MAIL_CONFIG=$SCRIPT_DIR/../misc/config-mail.ini
 
 preinstall() {
     sudo apt update && sudo apt install openssh-server -y
@@ -42,7 +43,6 @@ uninstall_all() {
     sudo systemctl stop ff-starter.service
     sudo systemctl stop ff-killer.service
     sudo systemctl stop ff-bell.service
-    sudo systemctl stop time-checker.timer
     sudo systemctl stop time-checker.service
     sudo systemctl stop ff-poller-gate.service
     sudo systemctl stop "ff-limiter@*"
@@ -51,7 +51,6 @@ uninstall_all() {
     sudo systemctl disable ff-killer.service
     sudo systemctl disable ff-bell.service
     sudo systemctl disable time-checker.service
-    sudo systemctl disable time-checker.timer
     sudo systemctl disable ff-poller-gate.service
 
     systemctl --user stop ff-starter.service
@@ -90,8 +89,9 @@ install_files() {
     sudo cp $SCRIPT_DIR/../bin/ff-poller-gate.sh /usr/local/bin/ff-poller-gate.sh
     sudo cp $SCRIPT_DIR/../bin/time-checker-shutdown.py /usr/local/bin/time-checker-shutdown.py
     sudo cp $SCRIPT_DIR/../bin/.env /usr/local/bin/.env
-    [ -f "$SCRIPT_DIR/../misc/config-mail.ini" ] && sudo cp "$SCRIPT_DIR/../misc/config-mail.ini" /etc/time_checker/config-mail.ini    
+    [ -f "$MAIL_CONFIG" ] && sudo cp "$MAIL_CONFIG" /etc/time_checker/config-mail.ini    
     sudo cp $SCRIPT_DIR/../misc/config-time-shutdown.conf /etc/time_checker/config-time-shutdown.conf
+    sudo cp $SCRIPT_DIR/../services/time-checker.service /etc/systemd/system/time-checker.service
     sudo cp $SCRIPT_DIR/../services/ff-poller-gate.service /etc/systemd/system/ff-poller-gate.service
     sudo cp $SCRIPT_DIR/../services/ff-killer.service /etc/systemd/system/ff-killer.service
     sudo cp $SCRIPT_DIR/../services/ff-limiter@.service /etc/systemd/system/ff-limiter@.service
@@ -114,15 +114,15 @@ install_files() {
     systemctl --user daemon-reload
     sudo systemctl enable --now ff-killer.service
     sudo systemctl enable --now ff-poller-gate.service
-    sudo systemctl enable --now time-checker.timer
+    sudo systemctl enable --now time-checker.service
+    sudo systemctl start time-checker.service
     systemctl --user enable ff-starter.service
     systemctl --user enable ff-bell.service
     systemctl --user start ff-starter.service
     systemctl --user start ff-bell.service
-    systemctl start time-checker.timer
     systemctl list-units --all "ff-*"
     systemctl list-units --all "time-checker*"
-    sudo systemctl status time-checker.timer
+    sudo systemctl status time-checker.service
     sudo systemctl status ff-killer.service
     sudo systemctl status ff-poller-gate.service
     systemctl --user status ff-starter.service
@@ -173,7 +173,6 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-MAIL_CONFIG=$SCRIPT_DIR/../misc/config-mail.conf
 if [ ! -f $MAIL_CONFIG ]; then
     echo ""
     echo "Mail Configuration file not found."
