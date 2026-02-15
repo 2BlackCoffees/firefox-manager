@@ -1,0 +1,31 @@
+[Unit]
+Description=Time Range Checker Continuous Service
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+# Changed from oneshot to simple
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/time-checker-shutdown /etc/time_checker/schedule.conf
+
+# Restart Logic
+# 'always' ensures it restarts if it crashes, is killed, or exits normally
+Restart=always
+# Wait 5 seconds before restarting to prevent rapid-fire loop if config is broken
+RestartSec=5s
+
+# Security hardening (Removed PrivateTmp=true to ensure /tmp/time_checker_extension is accessible)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/tmp /var/tmp /etc/time_checker
+
+# Logging and Environment
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=time-checker
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
+
