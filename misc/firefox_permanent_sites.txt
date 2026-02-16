@@ -34,3 +34,5 @@ www.dwds.de
 www.duden.de
 de.langenscheidt.com
 dict.leo.org
+www.sporcle.com
+www.triviaduel.com
