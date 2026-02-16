@@ -40,26 +40,26 @@ install_vnc() {
 }
 
 uninstall_all() {
-    sudo systemctl stop ff-starter.service
-    sudo systemctl stop ff-killer.service
-    sudo systemctl stop ff-bell.service
-    sudo systemctl stop time-checker.service
-    sudo systemctl stop ff-poller-gate.service
-    sudo systemctl stop "ff-limiter@*"
+    sudo systemctl stop ff-starter.service || true
+    sudo systemctl stop ff-killer.service || true
+    sudo systemctl stop ff-bell.service || true
+    sudo systemctl stop time-checker.service || true
+    sudo systemctl stop ff-poller-gate.service || true
+    sudo systemctl stop "ff-limiter@*" || true
 
-    sudo systemctl disable ff-starter.service
-    sudo systemctl disable ff-killer.service
-    sudo systemctl disable ff-bell.service
-    sudo systemctl disable time-checker.service
-    sudo systemctl disable ff-poller-gate.service
+    sudo systemctl disable ff-starter.service || true
+    sudo systemctl disable ff-killer.service || true
+    sudo systemctl disable ff-bell.service || true
+    sudo systemctl disable time-checker.service || true
+    sudo systemctl disable ff-poller-gate.service || true
 
-    systemctl --user stop ff-starter.service
-    systemctl --user stop ff-bell.service
-    systemctl --user disable ff-starter.service
-    systemctl --user disable ff-bell.service
+    systemctl --user stop ff-starter.service || true
+    systemctl --user stop ff-bell.service || true
+    systemctl --user disable ff-starter.service || true
+    systemctl --user disable ff-bell.service || true
     
-    sudo rm /etc/systemd/system/ff-limiter@.service
-    sudo rm /usr/local/etc/firefox_permanent_sites.txt
+    sudo rm /etc/systemd/system/ff-limiter@.service || true
+    sudo rm /usr/local/etc/firefox_permanent_sites.txt || true
 
     sudo systemctl daemon-reload
     systemctl --user daemon-reload
@@ -68,7 +68,7 @@ uninstall_all() {
 
 }
 install_files() {
-    uninstall_all
+    uninstall_all || true
     sudo apt update && sudo apt install jq curl
 
 
@@ -167,11 +167,6 @@ test() {
 
 
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then 
-    echo "Please run as root (use sudo)"
-    exit 1
-fi
 
 if [ ! -f $MAIL_CONFIG ]; then
     echo ""
