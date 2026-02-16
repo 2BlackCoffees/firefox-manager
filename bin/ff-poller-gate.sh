@@ -101,8 +101,12 @@ while true; do
 
     # --- Step 1: Periodically Sync Global Settings ---
     if (( NOW - LAST_SETTINGS_SYNC > SETTINGS_SYNC_INTERVAL )); then
+        log "Time to sync global settings..."
         sync_global_settings
+        sync_power_on_schedule
         LAST_SETTINGS_SYNC=$NOW
+    else
+        log "Skipping global settings sync. Next sync in $((SETTINGS_SYNC_INTERVAL - (NOW - LAST_SETTINGS_SYNC))) seconds."
     fi
 
     # --- Step 2: Time Window Enforcement ---
