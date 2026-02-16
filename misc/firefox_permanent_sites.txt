@@ -29,3 +29,8 @@ digipad.app
 play.kahoot.it
 kahoot.it
 create.kahoot.it
+de.pons.com
+www.dwds.de
+www.duden.de
+de.langenscheidt.com
+dict.leo.org
