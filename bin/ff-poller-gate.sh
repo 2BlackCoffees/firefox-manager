@@ -19,6 +19,7 @@ MIN_START_TIME="16:00:00"
 MAX_START_TIME="21:30:00"
 SETTINGS_SYNC_INTERVAL=300 # Sync global hours every 5 minutes
 LAST_SETTINGS_SYNC=0
+POWER_ON_SCHEDULE=/etc/time_checker/config-time-shutdown.conf
 
 # 1. Load persisted values or set defaults
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
@@ -32,6 +33,36 @@ sleep_time() {
     POLL_INTERVAL=$1
     log "Sleeping for $POLL_INTERVAL seconds..."
     sleep "$POLL_INTERVAL"
+}
+
+sync_power_on_schedule() {
+    log "Syncing Power-On Schedule..."
+    # Fetch from the new endpoint
+    RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/settings/poweronschedule")
+    
+    if [ $? -eq 0 ] && [ "$RESPONSE" != "" ]; then
+        # 1. to_entries turns {"1": [...]} into [{"key": "1", "value": [...]}]
+        # 2. select filters out days with empty arrays
+        # 3. join(",") creates "08:00-10:00,17:00-18:00" (no extra spaces)
+        FORMATTED_CONFIG=$(echo "$RESPONSE" | jq -r '
+            .schedule | to_entries | 
+            map(select(.value | length > 0)) | 
+            map("\(.key): \(.value | join(","))") | 
+            .[]
+        ')
+
+        if [[ -n "$FORMATTED_CONFIG" ]]; then
+            # Ensure the directory exists
+            mkdir -p /etc/time_checker
+            # Write to the file the Python script reads
+            echo "$FORMATTED_CONFIG" > $POWER_ON_SCHEDULE
+            log "Power-On Schedule updated in $POWER_ON_SCHEDULE:\n$FORMATTED_CONFIG"
+        else
+            log "Schedule is empty. No changes made to config-time-shutdown.conf"
+        fi
+    else
+        log "Failed to fetch Power-On Schedule."
+    fi
 }
 
 sync_global_settings() {

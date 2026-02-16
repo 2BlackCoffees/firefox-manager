@@ -502,15 +502,37 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .settings-card {
     max-width: 500px; /* Slightly wider for management */
-}
+    width: 90%;
+    
+    /* 1. Limit height to almost full screen */
+    max-height: 85vh; 
+    
+    /* 2. Enable vertical scrolling */
+    overflow-y: auto; 
+    
+    /* 3. Ensure the glow and border don't get cut off weirdly */
+    padding: 30px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
 
-.settings-card {
     background: rgba(5, 5, 5, 0.98) !important; /* Almost fully opaque black */
     border: 2px solid var(--cyan);
     box-shadow: 0 0 50px rgba(0, 0, 0, 1), 0 0 20px rgba(0, 242, 255, 0.2);
     max-width: 500px;
     padding: 30px;
     border-radius: 12px;
+}
+
+.settings-card::-webkit-scrollbar {
+    width: 6px;
+}
+.settings-card::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+}
+.settings-card::-webkit-scrollbar-thumb {
+    background: var(--cyan-dark);
+    border-radius: 10px;
 }
 
 /* Ensure the background blur behind the modal is stronger */

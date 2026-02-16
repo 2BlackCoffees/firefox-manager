@@ -66,6 +66,14 @@ TIMEGATE_BYPASS_SECRET="Your TIMEGATE_BYPASS_SECRET"
 
 
 ---
+#### Gmail Account with App Password enabled
+
+* Go to: https://myaccount.google.com/apppasswords
+* Generate a new App Password for "Mail"
+* Save this password for configuration
+
+Use the generated password to update the file `misc/config-mail.ini`: Can be created automatically when installing the application.
+
 
 #### Run the Installer
 
@@ -129,6 +137,11 @@ sudo journalctl -u ff-poller-gate -f
 And
 ```bash
 firefox-manager/bin/ff-poller-gate-local.sh
+```
+And
+```bash
+sudo systemctl status time-checker.service
+sudo journalctl -u time_checker.service --since "1 hour ago"
 ```
 ## Additional troubleshooting
 ```bash

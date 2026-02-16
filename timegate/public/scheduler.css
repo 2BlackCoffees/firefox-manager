@@ -1,0 +1,82 @@
+.weekly-scheduler {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.day-config-row {
+    background: rgba(0, 242, 255, 0.02);
+    border: 1px solid rgba(0, 242, 255, 0.1);
+    padding: 12px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.day-config-row:hover {
+    background: rgba(0, 242, 255, 0.05);
+    border-color: var(--cyan-dark);
+}
+
+.day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.day-name {
+    font-family: 'Orbitron';
+    font-size: 0.7rem;
+    color: var(--cyan-neon);
+    letter-spacing: 1px;
+}
+
+.time-chip {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-dark);
+    border: 1px solid var(--cyan-dark);
+    color: var(--cyan-neon);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.remove-range {
+    margin-left: 8px;
+    cursor: pointer;
+    color: var(--red);
+    font-weight: bold;
+}
+
+.remove-range:hover {
+    color: #fff;
+}
+
+.status-locked {
+    font-size: 0.7rem;
+    color: var(--cyan);
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid rgba(7, 192, 243, 0.957);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255, 0, 60, 0.05);
+}
+
+.btn-small {
+    padding: 6px 12px !important; /* Overrides the 16px padding in .btn-cyan */
+    font-size: 0.7rem !important;  /* Smaller font for compact UI */
+    min-height: auto;              /* Ensures it doesn't stay tall */
+    width: auto;                   /* Don't force full width unless needed */
+}
+
+/* Specific styling for the Add Range button if needed */
+.btn-add-range {
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}

@@ -1,3 +1,9 @@
+// At the very top of app.js
+import { TimeScheduler } from './scheduler.js';
+
+// Initialize the scheduler instance
+const scheduler = new TimeScheduler('weeklyScheduler');
+
 const API_URL = window.location.origin.includes('localhost') 
   ? `http://localhost:${process.env.SERVER_PORT}/api` 
   : '/api';
@@ -11,6 +17,7 @@ const updateTimeBtn = document.getElementById('updateTimeBtn');
 const settingsModal = document.getElementById('settingsModal');
 const openSettingsBtn = document.getElementById('openSettingsBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const saveScheduledButton = document.getElementById('saveScheduleBtn');
 
 let pendingAction = null;
 
@@ -175,6 +182,32 @@ closeSettingsBtn.onclick = () => {
     loadTargets(false); 
 };
 
+async function loadSchedule() {
+    try {
+        //const res = await fetch(`${API_URL}/settings/schedule`);
+        //const data = await res.json();
+        const data = null
+        scheduler.setData(data);
+    } catch (e) {
+        console.error("Failed to load schedule", e);
+    }
+}
+
+saveScheduledButton.onclick = async () => {
+    const currentData = scheduler.getSchedule();
+    const key = await requestPassword("AUTHORIZE POWER ON TIME UPDATE");
+    if (!key) return;
+
+    const res = await fetch(`${API_URL}/settings/poweronschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': key },
+        body: JSON.stringify({ schedule: currentData })
+    });
+
+    if (res.ok) {
+        await showAlert('info', 'Schedule Deployed', "Protocol updated successfully.");
+    }
+};
 
 // --- Initialization ---
 async function init() {
@@ -210,6 +243,8 @@ async function init() {
             closeModal();
         }
     });
+    console.log("Initialization complete, loading schedule...");
+    loadSchedule();
 }
 
 function formatFullCreationString(selectedSites, isoTimestamp, durationMins) {

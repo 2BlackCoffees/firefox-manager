@@ -192,5 +192,45 @@ app.delete('/api/targets/:id', checkAuth, async (req, res) => {
     }
 });
 
+// Get the power-on schedule
+app.get('/api/settings/poweronschedule', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT value FROM settings WHERE key = $1', ['power_on_schedule']);
+        if (result.rows.length > 0) {
+            // Parse the JSON string back into an object
+            res.json({ schedule: JSON.parse(result.rows[0].value) });
+        } else {
+            // Return default empty structure if not set
+            res.json({ schedule: {i: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []} });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update the power-on schedule (Protected)
+app.post('/api/settings/poweronschedule', checkAuth, async (req, res) => {
+    const { schedule } = req.body;
+    
+    if (!schedule) {
+        return res.status(400).json({ error: "Schedule data is required" });
+    }
+
+    try {
+        // We use UPSERT (Insert or Update) logic
+        await pool.query(
+            `INSERT INTO settings (key, value) 
+             VALUES ($1, $2) 
+             ON CONFLICT (key) 
+             DO UPDATE SET value = EXCLUDED.value`,
+            ['power_on_schedule', JSON.stringify(schedule)]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error saving schedule:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Crucial: Export the app for Vercel's serverless handler
 module.exports = app;

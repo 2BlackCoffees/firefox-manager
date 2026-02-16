@@ -40,11 +40,11 @@ INSERT INTO targets (name, address) VALUES
 CREATE TABLE IF NOT EXISTS global_settings (
     id SERIAL PRIMARY KEY,
     min_start_time TIME NOT NULL DEFAULT '07:00:00',
-    max_start_time TIME NOT NULL DEFAULT '21:00:00',
+    max_start_time TIME NOT NULL DEFAULT '21:30:00',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Seed the initial row
 INSERT INTO global_settings (id, min_start_time, max_start_time, updated_at) 
-VALUES (1, '07:00:00', '21:00:00', CURRENT_TIMESTAMP)
+VALUES (1, '07:00:00', '21:30:00', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;

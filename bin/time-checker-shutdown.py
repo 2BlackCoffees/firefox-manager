@@ -447,7 +447,7 @@ class TimeRangeChecker:
             Tuple of (exit_code, status_message)
             0 if in range, 1 if not in range, 2 if no config for today
         """
-        now = datetime.now()
+        now: datetime = datetime.now()
         current_day: int = (now.weekday() + 1) % 7
         current_time_str: str = now.strftime("%H:%M")
         current_minutes: int = now.hour * 60 + now.minute
@@ -552,15 +552,14 @@ def shutdown_system(grace_seconds: int = 60):
     Logger.log(f"{'=' * 60}\n")
     
     try:
-        subprocess.run([
-            "shutdown", "-h", 
-            f"+{grace_seconds // 60}"
-        ], check=True)
-        
+        subprocess.run([ "shutdown", "-P", f"+{grace_seconds // 60}" ], check=True)
         Logger.log("✓ Shutdown scheduled successfully")
+
+        subprocess.run(["systemctl", "stop", "time-checker.service"], check=True)
+        Logger.log("✓ Service stopped successfully")
         
     except subprocess.CalledProcessError as e:
-        Logger.log(f"✗ Failed to schedule shutdown: {e}")
+        Logger.log(f"✗ Failed to schedule shutdown or stop service: {e}")
         Logger.log("Note: This script requires root privileges to shutdown the system")
         sys.exit(1)
 
@@ -613,12 +612,12 @@ Examples:
     Logger.log("TIME RANGE CHECKER: SERVICE MODE START")
     Logger.log("=" * 60)
 
-    checker = TimeRangeChecker(args.config_file)
-    email_config = EmailConfig(args.email_config)
-    notifier = SecureEmailNotifier(email_config)
+    email_config: EmailConfig = EmailConfig(args.email_config)
+    notifier: SecureEmailNotifier = SecureEmailNotifier(email_config)
 
     try:
         while True:
+            checker: TimeRangeChecker = TimeRangeChecker(args.config_file)
             Logger.log("Checking time range...")
             extension_minutes: int = TimeExtensionHook.get_extension_minutes()
             if extension_minutes > 0:
@@ -644,8 +643,7 @@ Examples:
                     shutdown_system(args.grace_period)
                     break # Exit loop so service stops after scheduling shutdown
 
-            # Wait for 120 seconds (2 minutes) before checking again
-            # Adjust this value based on how responsive you want the script to be
+            # Wait for before checking again
             if args.dry_run:
                 time.sleep(10)
             else:
