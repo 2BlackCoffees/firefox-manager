@@ -205,6 +205,17 @@ input[type="time"],
     color: #00f2ff !important;
 }
 
+input[readonly].readonly-input {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(80, 142, 145, 0.2) !important; /* Dimmer cyan-dark */
+    box-shadow: none !important; /* Remove the neon glow */
+    color: var(--cyan-dark) !important; /* Dimmer text */
+    cursor: default;
+    pointer-events: none; /* Prevents mobile keyboard from popping up */
+    filter: brightness(0.8);
+}
+
+
 /* Below is a fix for Vercel*/
 #app #newSiteName, 
 #app #newSiteAddress,
@@ -454,6 +465,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
         transition: all 0.1s ease;
     }
 
+    input[readonly].readonly-input:hover {
+        filter: brightness(0.8) !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
 }
 
 .section-label {
@@ -687,4 +703,46 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* Ensure the background overlay stays at the very bottom */
 .background-overlay {
     z-index: -2; 
+}
+
+.status-grid-hours {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(0, 255, 255, 0.03);
+    border: 1px solid rgba(0, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.day-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.day-label {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 4px;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.hour-value {
+    font-size: 13px;
+    font-weight: bold;
+    color: #00f3ff;
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.hour-value.zero {
+    color: rgba(255, 255, 255, 0.1);
+}
+
+.hour-unit {
+    font-size: 8px;
+    margin-left: 1px;
+    opacity: 0.7;
 }

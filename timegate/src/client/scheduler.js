@@ -11,7 +11,7 @@ export class TimeScheduler {
 
     // Set data from the API
     setData(data) {
-        this.scheduleState = data || {i: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []};
+        this.scheduleState = data.schedule || {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []};
         this.render();
     }
 
@@ -20,7 +20,7 @@ export class TimeScheduler {
 
         this.container.innerHTML = this.days.map((day, index) => {
             const ranges = this.scheduleState[index] || [];
-            //console.log(`Rendering ${day}:`, ranges);
+            //console.log(`Rendering ${day} (${index}: ${this.scheduleState[index]}):`, ranges);
             return `
                 <div class="day-config-row" data-day="${index}">
                     <div class="day-header">

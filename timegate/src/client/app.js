@@ -18,8 +18,56 @@ const settingsModal = document.getElementById('settingsModal');
 const openSettingsBtn = document.getElementById('openSettingsBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const saveScheduledButton = document.getElementById('saveScheduleBtn');
-
+const openAccessTimeBtn = document.getElementById('openAccessTimeBtn');
+const timeAccessesModal = document.getElementById('timeAccessesModal');
+const updateFirefoxAccessTime = document.getElementById('updateFirefoxAccessTime');
+const timeAccessesModalCancel = document.getElementById('timeAccessesModalCancel');
 let pendingAction = null;
+
+function calculateDailyTotal(ranges) {
+    if (!ranges || ranges.length === 0) return 0;
+
+    let totalMinutes = 0;
+    ranges.forEach(range => {
+        const [start, end] = range.split('-');
+        const [sH, sM] = start.split(':').map(Number);
+        const [eH, eM] = end.split(':').map(Number);
+        
+        totalMinutes += (eH * 60 + eM) - (sH * 60 + sM);
+    });
+
+    return (totalMinutes / 60).toFixed(1); // Returns e.g., "14.0"
+}
+
+function updateSyntheticView(data) {
+    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const grid = document.getElementById('statusGrid');
+    const summary = document.getElementById('todayWindows');
+    const todayIndex = new Date().getDay();
+
+    let gridHTML = '';
+    
+    for (let i = 0; i < 7; i++) {
+        const hours = calculateDailyTotal(data[i]);
+        const isToday = i === todayIndex;
+        const zeroClass = hours <= 0 ? 'zero' : '';
+        
+        gridHTML += `
+            <div class="day-stat" style="${isToday ? 'border-bottom: 2px solid #00f3ff;' : ''}">
+                <span class="day-label">${dayNames[i]}</span>
+                <span class="hour-value ${zeroClass}">${hours}<span class="hour-unit">H</span></span>
+            </div>
+        `;
+    }
+
+    grid.innerHTML = gridHTML;
+
+    // Detailed Summary for Today
+    const todayData = data[todayIndex];
+    summary.innerText = (todayData && todayData.length > 0) 
+        ? todayData.join(' | ') 
+        : 'STANDBY MODE (NO ACCESS)';
+}
 
 async function loadGlobalSettings() {
     try {
@@ -153,25 +201,48 @@ document.getElementById('changePassBtn').onclick = async () => {
     if (res.ok) await showAlert('info', 'Password Changed Successfully', "Password has been successfully changed.");
     else await showAlert('error', 'Password not changed',"Password Verification Failed.");
 };
-updateTimeBtn.onclick = async () => {
-    const start = document.getElementById('globalStart').value;
-    const end = document.getElementById('globalEnd').value;
+
+openAccessTimeBtn.onclick = () => {
+    // Pre-fill the modal with current values from the main screen
+    document.getElementById('pickerStart').value = document.getElementById('globalStart').value;
+    document.getElementById('pickerEnd').value = document.getElementById('globalEnd').value;
+    
+    timeAccessesModal.style.display = 'flex';
+};
+
+timeAccessesModalCancel.onclick = () => {
+    timeAccessesModal.style.display = 'none';
+};
+
+updateFirefoxAccessTime.onclick = async () => {
+    const start = document.getElementById('pickerStart').value;
+    const end = document.getElementById('pickerEnd').value;
 
     const key = await requestPassword("AUTHORIZE TIME UPDATE");
     if (!key) return;
 
-    const res = await fetch(`${API_URL}/settings/time`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': key },
-        body: JSON.stringify({ min_start_time: start, max_start_time: end })
-    });
+    try {
+        const res = await fetch(`${API_URL}/settings/time`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': key },
+            body: JSON.stringify({ min_start_time: start, max_start_time: end })
+        });
 
-    if (res.ok) {
-        await showAlert('info', 'Settings Updated', "Global time settings have been updated. IMPORTANT: this change will require some minutes before being reflected in your computer.");
-    } else {
-        await showAlert('error', 'Update Failed', "Unauthorized access.");
+        if (res.ok) {
+            // Update the read-only display on the main page
+            document.getElementById('globalStart').value = start;
+            document.getElementById('globalEnd').value = end;
+            
+            timeAccessesModal.style.display = 'none';
+            await showAlert('info', 'Settings Updated', "Global time settings updated. System refresh may take a few minutes.");
+        } else {
+            await showAlert('error', 'Update Failed', "Unauthorized access.");
+        }
+    } catch (error) {
+        console.error("Update error:", error);
     }
-}
+};
+
 openSettingsBtn.onclick = async () => {
     settingsModal.style.display = 'flex';
     loadTargets(true); 
@@ -184,9 +255,9 @@ closeSettingsBtn.onclick = () => {
 
 async function loadSchedule() {
     try {
-        //const res = await fetch(`${API_URL}/settings/schedule`);
-        //const data = await res.json();
-        const data = null
+        const res = await fetch(`${API_URL}/settings/poweronschedule`);
+        const data = await res.json();
+        updateSyntheticView(data.schedule)
         scheduler.setData(data);
     } catch (e) {
         console.error("Failed to load schedule", e);
