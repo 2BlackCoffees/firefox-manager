@@ -258,7 +258,7 @@ async function loadSchedule() {
         const res = await fetch(`${API_URL}/settings/poweronschedule`);
         const data = await res.json();
         updateSyntheticView(data.schedule)
-        scheduler.setData(data);
+        scheduler.setSchedule(data);
     } catch (e) {
         console.error("Failed to load schedule", e);
     }
@@ -277,6 +277,9 @@ saveScheduledButton.onclick = async () => {
 
     if (res.ok) {
         await showAlert('info', 'Schedule Deployed', "Protocol updated successfully.");
+        updateSyntheticView(currentData);
+    } else {
+        await showAlert('error', 'Schedule update Failed', "Unauthorized access."); 
     }
 };
 

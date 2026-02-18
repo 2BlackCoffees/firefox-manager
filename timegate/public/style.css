@@ -490,8 +490,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     font-family: 'Orbitron';
 }
 
-
-
+.align-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+}
 
 .modal-site-list {
     max-height: 150px;

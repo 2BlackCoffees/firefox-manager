@@ -10,11 +10,13 @@ export class TimeScheduler {
     }
 
     // Set data from the API
-    setData(data) {
+    setSchedule(data) {
         this.scheduleState = data.schedule || {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []};
         this.render();
     }
-
+    getSchedule() {
+        return this.scheduleState;
+    }
     render() {
         if (!this.container) return;
 
@@ -69,8 +71,8 @@ export class TimeScheduler {
         const modal = document.getElementById('timePickerModal');
         const confirmBtn = document.getElementById('timePickerConfirm');
         const cancelBtn = document.getElementById('timePickerCancel');
-        const startInput = document.getElementById('pickerStart');
-        const endInput = document.getElementById('pickerEnd');
+        const startInput = document.getElementById('rangeStart');
+        const endInput = document.getElementById('rangeEnd');
 
         // Show the modal
         modal.style.display = 'flex';
@@ -85,8 +87,10 @@ export class TimeScheduler {
         };
 
         confirmBtn.onclick = () => {
-            const start = startInput.value;
-            const end = endInput.value;
+            const start = startInput.value.split(':').slice(0, 2).join(':');
+            const end = endInput.value.split(':').slice(0, 2).join(':');
+
+            console.log(`Confirming new range for day ${dayIdx}:`, { start, end });
             
             if (start && end) {
                 if (!this.scheduleState[dayIdx]) this.scheduleState[dayIdx] = [];
@@ -108,7 +112,4 @@ export class TimeScheduler {
         this.render();
     }
 
-    getSchedule() {
-        return this.scheduleState;
-    }
 }

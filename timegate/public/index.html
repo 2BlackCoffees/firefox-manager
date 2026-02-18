@@ -79,12 +79,12 @@
                 <h3>📊 SYSTEM UPTIME LOAD</h3>
 
                 <section class="widget-row glass">
-
+                    <h3>🔋 AUTHORIZED POWER ON TIME</h3>
                     <div id="statusGrid" class="status-grid-hours">
                         </div>
 
-                    <div id="todayScheduleSummary" class="schedule-summary">
-                        <span class="mini-label">ACTIVE WINDOWS:</span>
+                    <div id="todayScheduleSummary" class="schedule-summary align-right">
+                        <span class="mini-label">ACTIVE WINDOWS TODAY:</span>
                         <span id="todayWindows" class="accent-text">-- : --</span>
                     </div>  
                 </section>
@@ -133,7 +133,7 @@
                 <hr class="divider">
 
                 <section class="widget-row glass">
-                    <h3>RESTRICT FIREFOX ACCESS</h3>
+                    <h3>🚫 RESTRICT FIREFOX ACCESS</h3>
                     <div class="time-input-row" style="margin-bottom: 20px;">
                         <div class="input-wrapper">
                             <label class="mini-label">START</label>
@@ -144,11 +144,11 @@
                             <input type="time" id="pickerEnd" value="17:00">
                         </div>
                     </div>
-                    <button id="updateFirefoxAccessTime"  class="btn-cyan full-width" style="margin-top:15px">UPDATE FIREFOX ACCESS</button>
+                    <button id="updateFirefoxAccessTime"  class="btn-cyan full-width" style="margin-top:15px">🦊 UPDATE FIREFOX ACCESS</button>
                 </section>
             </div>
             <div class="modal-btns">
-                <button id="timeAccessesModalCancel" class="btn-ghost">CANCEL</button>
+                <button id="timeAccessesModalCancel" class="btn-ghost">CLOSE</button>
             </div>
         </div>
     </div>
@@ -183,11 +183,11 @@
                 <div class="time-input-row" style="margin-bottom: 20px;">
                     <div class="input-wrapper">
                         <label class="mini-label">START</label>
-                        <input type="time" id="pickerStart" value="08:00">
+                        <input type="time" id="rangeStart" value="08:00">
                     </div>
                     <div class="input-wrapper">
                         <label class="mini-label">END</label>
-                        <input type="time" id="pickerEnd" value="17:00">
+                        <input type="time" id="rangeEnd" value="17:00">
                     </div>
                 </div>
             </div>
