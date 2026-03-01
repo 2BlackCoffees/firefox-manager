@@ -1,8 +1,8 @@
 [Unit]
 Description=Time Range Checker Continuous Service
 # The Handshake requires both to be active
-After=network-online.target timegate-poller.service
-Requires=timegate-poller.service
+After=network-online.target ff-poller-gate.service
+Requires=ff-poller-gate.service
 
 [Service]
 Type=simple
