@@ -19,7 +19,10 @@ MIN_START_TIME="16:00:00"
 MAX_START_TIME="21:30:00"
 SETTINGS_SYNC_INTERVAL=300 # Sync global hours every 5 minutes
 LAST_SETTINGS_SYNC=0
-POWER_ON_SCHEDULE=/etc/time_checker/config-time-shutdown.conf
+# WARNING Following variables are used in the time-checker-shutdown.py script. Do not change their content without updating the Python script accordingly.
+TIME_CHECKER_PATH=/etc/time_checker
+POWER_ON_SCHEDULE=$TIME_CHECKER_PATH/config-time-shutdown.conf
+REQUEST_FILE_SYNC=/run/time_checker_sync.request
 
 # 1. Load persisted values or set defaults
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
@@ -33,6 +36,15 @@ sleep_time() {
     POLL_INTERVAL=$1
     log "Sleeping for $POLL_INTERVAL seconds..."
     sleep "$POLL_INTERVAL"
+}
+
+wait_for_request() {
+    log "Waiting for Python service to request sync with $REQUEST_FILE_SYNC..."
+    # Loop until the file exists
+    while [ ! -f "$REQUEST_FILE_SYNC" ]; do
+        sleep 1
+    done
+    log "Request received. Starting sync..."
 }
 
 sync_power_on_schedule() {
@@ -53,9 +65,10 @@ sync_power_on_schedule() {
 
         if [[ -n "$FORMATTED_CONFIG" ]]; then
             # Ensure the directory exists
-            mkdir -p /etc/time_checker
+            mkdir -p $TIME_CHECKER_PATH
             # Write to the file the Python script reads
-            echo "$FORMATTED_CONFIG" > $POWER_ON_SCHEDULE
+            echo "$FORMATTED_CONFIG" > $POWER_ON_SCHEDULE.tmp
+            mv $POWER_ON_SCHEDULE.tmp $POWER_ON_SCHEDULE
             log "Power-On Schedule updated in $POWER_ON_SCHEDULE:\n$FORMATTED_CONFIG"
         else
             log "Schedule is empty. No changes made to config-time-shutdown.conf"
@@ -82,8 +95,9 @@ sync_global_settings() {
         if [[ -n "$NEW_MAX" ]]; then MAX_START_TIME=$NEW_MAX; UPDATE_NEEDED=true; fi
 
         if [ "$UPDATE_NEEDED" = true ]; then
-            echo "MIN_START_TIME=\"$MIN_START_TIME\"" > "$CONFIG_FILE"
-            echo "MAX_START_TIME=\"$MAX_START_TIME\"" >> "$CONFIG_FILE"
+            echo "MIN_START_TIME=\"$MIN_START_TIME\"" > "$CONFIG_FILE.tmp"
+            echo "MAX_START_TIME=\"$MAX_START_TIME\"" >> "$CONFIG_FILE.tmp"
+            mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
             log "Config updated: Min=$MIN_START_TIME, Max=$MAX_START_TIME"
         fi
 
@@ -92,6 +106,10 @@ sync_global_settings() {
         log "Failed to sync global settings. Using cached: $MIN_START_TIME"
     fi
 }
+log "Initial start: Time to sync global settings..."
+sync_global_settings
+wait_for_request
+sync_power_on_schedule
 
 log "Starting Timegate Poller (Interval: ${POLL_INTERVAL}s)..."
 
@@ -125,7 +143,7 @@ while true; do
     elif [[ "$NOW" -gt "$MAX_SEC" ]]; then
         log "Past limit ($CURRENT_TIME). Stopping services..."
         systemctl stop "ff-limiter@*"
-        # Exit or sleep until next day
+
         sleep_time 60
         continue
     else 

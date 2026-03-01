@@ -1,12 +1,17 @@
 [Unit]
 Description=Timegate Firefox Manager Poller
-After=graphical.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 EnvironmentFile=/usr/local/bin/.env
 Type=simple
 ExecStart=/bin/bash /usr/local/bin/ff-poller-gate.sh
 Restart=always
+# Ensure it can write the config file
+ReadWritePaths=/etc/time_checker /tmp /run
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target
+
+

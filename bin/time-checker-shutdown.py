@@ -16,11 +16,13 @@ import os
 import re
 import smtplib
 import ssl
+import subprocess
+import time
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import subprocess
-import time
+from pathlib import Path
+
 
 class Logger:
     """Simple logger with timestamp."""
@@ -249,7 +251,7 @@ class TimeExtensionHook:
             if os.path.exists(TimeExtensionHook.HOOK_FILE):
                 os.remove(TimeExtensionHook.HOOK_FILE)
                 if os.path.exists(TimeExtensionHook.HOOK_FILE):
-                    Path(imeExtensionHook.HOOK_FILE_TOUCHED).touch()
+                    Path(TimeExtensionHook.HOOK_FILE_TOUCHED).touch()
                     Logger.log(f"Extension hook could not be cleared created {TimeExtensionHook.HOOK_FILE_LOCKED}, this will require human intervention to remove it.")
                 else:
                     Logger.log("Extension hook cleared")
@@ -334,13 +336,40 @@ class TimeRangeChecker:
         "Thursday", "Friday", "Saturday"
     ]
     
-    def __init__(self, config_file: str):
+    def __init__(self, config_file: str, request_file_sync: str):
         """Initialize with configuration file path."""
         self.config_file: str = config_file
+        self.request_file_sync: str = request_file_sync
         self.time_config: dict[str, list[tuple[int, int]]] = {}
         self.cron_rules: list[str] = []
+        self.__initialize_and_wait_bash_script()
         self._parse_config()
-    
+
+    def __initialize_and_wait_bash_script(self) -> None:
+        # Clear old data so we CAN'T read stale settings
+        if os.path.exists(self.config_file):
+            os.remove(self.config_file)
+            Logger.log(f"Deleted old config file: {self.config_file}")
+        
+        # Signal to Bash that we are ready for a refresh
+        try:
+            with open(self.request_file_sync, 'w') as f:
+                f.write("sync_request")
+            Logger.log(f"Created request file for sync with bash script service: {self.request_file_sync}")
+        except PermissionError:
+            Logger.log(f"Error: Python lacks permission to write to /run: {self.request_file_sync}")
+            sys.exit(1)
+
+        Logger.log("Waiting for Bash to provide fresh config...")
+        
+        # Block until the file is created by Bash
+        while not os.path.exists(self.config_file):
+            time.sleep(1)
+        
+        # Clean up the request flag
+        os.remove(self.request_file_sync)
+        Logger.log(f"Fresh config received, removed {self.request_file_sync}. Proceeding.")
+
     @staticmethod
     def time_to_minutes(time_str: str) -> int:
         """Convert time HH:MM to minutes since midnight."""
@@ -598,7 +627,9 @@ Examples:
     )
     
     parser.add_argument('config_file', nargs='?', default='/etc/time_checker/config-time-shutdown.conf',
-                        help='Configuration file (default: /etc/time_checker/config-time-shutdown.conf)')
+                        help='Configuration file (default: /etc/time_checker/config-time-shutdown.conf)')    
+    parser.add_argument('--request_file_sync', nargs='?', default='/run/time_checker_sync.request',
+                        help='Synchronization file (default: /run/time_checker_sync.request)')
     parser.add_argument('--dry-run', action='store_true',
                         help='Test mode - do not actually shutdown')
     parser.add_argument('--grace-period', type=int, default=60,
@@ -614,10 +645,11 @@ Examples:
 
     email_config: EmailConfig = EmailConfig(args.email_config)
     notifier: SecureEmailNotifier = SecureEmailNotifier(email_config)
+    mail_required: bool = email_config.is_configured()
 
     try:
         while True:
-            checker: TimeRangeChecker = TimeRangeChecker(args.config_file)
+            checker: TimeRangeChecker = TimeRangeChecker(args.config_file, args.request_file_sync)
             Logger.log("Checking time range...")
             extension_minutes: int = TimeExtensionHook.get_extension_minutes()
             if extension_minutes > 0:
@@ -629,13 +661,15 @@ Examples:
             
             if exit_code == 0:
                 Logger.log("✓ System is within active hours")
+                mail_required = False  # No need to send email if we're in the right time range
             
             elif exit_code == 1:
                 Logger.log("✗ System is outside active hours")
                 next_window = checker.get_time_until_next_window()
                 next_info = f"Next window: {next_window[0]}" if next_window else "No upcoming windows"
                 
-                notifier.send_notification(status_message, next_info, grace_period)
+                if mail_required:
+                    notifier.send_notification(status_message, next_info, grace_period)
                 
                 if args.dry_run:
                     Logger.log("🧪 DRY RUN - Shutdown skipped")
