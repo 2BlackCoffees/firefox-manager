@@ -1,7 +1,6 @@
 [Unit]
 Description=Timegate Firefox Manager Poller
-After=graphical.target
-Wants=graphical.target
+After=network-online.target
 
 [Service]
 EnvironmentFile=/usr/local/bin/.env
