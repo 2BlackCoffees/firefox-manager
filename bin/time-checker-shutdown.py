@@ -19,8 +19,10 @@ import ssl
 import subprocess
 import time
 from datetime import datetime, timedelta
+import urllib.request
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 from pathlib import Path
 
 
@@ -260,71 +262,98 @@ class TimeExtensionHook:
 
 
 class SecureEmailNotifier:
-    """Send secure email notifications via Gmail."""
+    """Send secure email notifications with Location and Photo data."""
     
     def __init__(self, config: EmailConfig):
         self.mail_config = config
-    
+
+    def _get_coords(self):
+        """Fetch approximate GPS coordinates via IP."""
+        try:
+            return urllib.request.urlopen("https://ipinfo.io/loc").read().decode().strip()
+        except:
+            return "Unknown (Location Offline)"
+
+    def _capture_photo(self, path="/tmp/capture.jpg"):
+        """Capture webcam photo using fswebcam."""
+        try:
+            # -v 0 silences output, -D 1 allows camera to warm up for exposure
+            subprocess.run(["fswebcam", "-r", "1280x720", "-v", "0", "-D", "1", path], check=True)
+            return path
+        except Exception as e:
+            print(f"Camera error: {e}")
+            return None
+
     def send_notification(self, status_message: str, next_info: str, grace_period: int) -> bool:
-        """Send email notification using Gmail with TLS encryption."""
-        subject = f"⚠️ Acccess VIOLATION! - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        body = f"""System Auto-Shutdown Alert due to access outside of allowed time
+        subject = f"⚠️ Access VIOLATION! - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        coords = self._get_coords()
+        photo_path = self._capture_photo()
+        
+        # Base text body
+        body_text = f"""System Auto-Shutdown Alert: Access Violation detected.
 
-{status_message}
-
-{next_info}
-
+Location: https://www.google.com/maps?q={coords}
 Hostname: {os.uname().nodename}
 User: {os.getenv('USER', 'unknown')}
 
 The system will shutdown in {grace_period} seconds.
-
-To extend time: echo "01:00" > /tmp/time_checker_extension
-To cancel shutdown: sudo shutdown -c
 """
+
         if not self.mail_config.is_configured():
-            Logger.log("⚠️  Email not configured - skipping notification")
             return False
         
         try:
-            message = MIMEMultipart("alternative")
+            message = MIMEMultipart("related") # "related" is better for embedded images
             message["Subject"] = subject
             message["From"] = self.mail_config.sender_email
             message["To"] = self.mail_config.recipient_email
             
+            # Create HTML with embedded image reference
             html_body = f"""
             <html>
-                <body>
-                    <h2>{subject}</h2>
-                    <pre>{body}</pre>
+                <body style="font-family: sans-serif;">
+                    <h2 style="color: #d9534f;">{subject}</h2>
+                    <p><b>Location:</b> <a href="https://www.google.com/maps?q={coords}">{coords}</a></p>
+                    <p><b>Status:</b> {status_message}</p>
+                    <div style="background: #f8f9fa; padding: 10px; border-left: 4px solid #d9534f;">
+                        <code>{next_info}</code>
+                    </div>
+                    <p><b>Incident Photo:</b></p>
+                    <img src="cid:incident_photo" style="max-width: 500px; border: 2px solid #000;">
                     <hr>
-                    <p style="color: #666; font-size: 12px;">
-                        Sent from Time Range Checker<br>
-                        Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-                    </p>
+                    <p style="color: #666; font-size: 12px;">Shutdown in {grace_period}s | Host: {os.uname().nodename}</p>
                 </body>
             </html>
             """
             
-            part1 = MIMEText(body, "plain")
-            part2 = MIMEText(html_body, "html")
-            message.attach(part1)
-            message.attach(part2)
-            
+            # Attach parts
+            msg_alternative = MIMEMultipart("alternative")
+            message.attach(msg_alternative)
+            msg_alternative.attach(MIMEText(body_text, "plain"))
+            msg_alternative.attach(MIMEText(html_body, "html"))
+
+            # Attach the Image with CID
+            if photo_path and os.path.exists(photo_path):
+                with open(photo_path, "rb") as f:
+                    img = MIMEImage(f.read())
+                    img.add_header("Content-ID", "<incident_photo>")
+                    message.attach(img)
+
+            # SMTP Sending
             context = ssl.create_default_context()
-            
             with smtplib.SMTP(self.mail_config.smtp_server, self.mail_config.smtp_port) as server:
-                server.ehlo()
                 server.starttls(context=context)
-                server.ehlo()
                 server.login(self.mail_config.sender_email, self.mail_config.sender_password)
                 server.send_message(message)
             
-            Logger.log("✓ Email notification sent successfully")
+            # Cleanup
+            if photo_path and os.path.exists(photo_path):
+                os.remove(photo_path)
+
             return True
             
         except Exception as e:
-            Logger.log(f"✗ Failed to send email: {e}")
+            print(f"Failed to send email: {e}")
             return False
 
 
