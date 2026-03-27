@@ -8,12 +8,13 @@ echo ""
 MAIL_CONFIG=$SCRIPT_DIR/../misc/config-mail.ini
 
 preinstall() {
-    sudo apt update && sudo apt install openssh-server -y
+    sudo apt update && sudo apt install openssh-server -y && sudo apt install fswebcam -y
     sudo systemctl enable --now ssh
     sudo ufw allow ssh
     sudo ufw enable
     sudo ufw status
     sudo apt install pulseaudio-utils
+    sudo usermod -aG video $USER
     # Disable the screensaver itself
     xfconf-query -c xfce4-screensaver -p /saver/enabled -n -t bool -s false
     # Disable the lock screen functionality
@@ -58,8 +59,8 @@ uninstall_all() {
     systemctl --user disable ff-starter.service || true
     systemctl --user disable ff-bell.service || true
     
-    sudo rm /etc/systemd/system/ff-limiter@.service || true
-    sudo rm /usr/local/etc/firefox_permanent_sites.txt || true
+    sudo rm -f /etc/systemd/system/ff-limiter@.service || true
+    sudo rm -f /usr/local/etc/firefox_permanent_sites.txt || true
 
     sudo systemctl daemon-reload
     systemctl --user daemon-reload
