@@ -1,4 +1,3 @@
-// At the very top of app.js
 import { TimeScheduler } from './scheduler.js';
 
 // Initialize the scheduler instance
@@ -7,13 +6,17 @@ const scheduler = new TimeScheduler('weeklyScheduler');
 const API_URL = window.location.origin.includes('localhost') 
   ? `http://localhost:${process.env.SERVER_PORT}/api` 
   : '/api';
+
+// --- MULTI-CLIENT STATE ---
+let selectedClientId = null;
+
 // UI Elements
+const clientSelector = document.getElementById('clientSelector'); // Ensure this exists in HTML
 const authModal = document.getElementById('authModal');
 const modalInput = document.getElementById('modalInput');
 const modalConfirm = document.getElementById('modalConfirm');
 const modalCancel = document.getElementById('modalCancel');
 const modalHeader = document.getElementById('modalHeader');
-const updateTimeBtn = document.getElementById('updateTimeBtn');
 const settingsModal = document.getElementById('settingsModal');
 const openSettingsBtn = document.getElementById('openSettingsBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
@@ -22,21 +25,69 @@ const openAccessTimeBtn = document.getElementById('openAccessTimeBtn');
 const timeAccessesModal = document.getElementById('timeAccessesModal');
 const updateFirefoxAccessTime = document.getElementById('updateFirefoxAccessTime');
 const timeAccessesModalCancel = document.getElementById('timeAccessesModalCancel');
-let pendingAction = null;
 
+// --- HELPER: HEADERS ---
+function getHeaders(authKey = null, client = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authKey) headers['Authorization'] = authKey;
+    if (client) headers['x-client-id'] = client;
+    return headers;
+}
+
+// --- CLIENT CONTEXT MANAGEMENT ---
+async function setClient(id) {
+    selectedClientId = id;
+    localStorage.setItem('last_selected_client', id);
+    
+    // Refresh client-specific data
+    loadGlobalSettings();
+    loadHistory();
+    loadSchedule();
+}
+
+function getClient() {
+    if (!selectedClientId) {
+            showAlert('error', 'No client selected', "This actions requires a client to be selected."); 
+    }
+    return selectedClientId
+}
+
+async function initClientList(adminPassword) {
+    try {
+        const res = await fetch(`${API_URL}/clients`, {
+            headers: { 'Authorization': adminPassword }
+        });
+        const clients = await res.json();
+        
+        if (clientSelector) {
+            clientSelector.innerHTML = clients.map(c => 
+                `<option value="${c.id}">${c.id}</option>`
+            ).join('');
+
+            const last = localStorage.getItem('last_selected_client');
+            const initialId = (last && clients.find(c => c.id === last)) ? last : clients[0]?.id;
+            
+            clientSelector.value = initialId;
+            setClient(initialId);
+
+            clientSelector.onchange = (e) => setClient(e.target.value);
+        }
+    } catch (e) {
+        console.error("Failed to load clients", e);
+    }
+}
+
+// --- DATA CALCULATION & UI ---
 function calculateDailyTotal(ranges) {
     if (!ranges || ranges.length === 0) return 0;
-
     let totalMinutes = 0;
     ranges.forEach(range => {
         const [start, end] = range.split('-');
         const [sH, sM] = start.split(':').map(Number);
         const [eH, eM] = end.split(':').map(Number);
-        
         totalMinutes += (eH * 60 + eM) - (sH * 60 + sM);
     });
-
-    return (totalMinutes / 60).toFixed(1); // Returns e.g., "14.0"
+    return (totalMinutes / 60).toFixed(1);
 }
 
 function updateSyntheticView(data) {
@@ -46,37 +97,29 @@ function updateSyntheticView(data) {
     const todayIndex = new Date().getDay();
 
     let gridHTML = '';
-    
     for (let i = 0; i < 7; i++) {
         const hours = calculateDailyTotal(data[i]);
         const isToday = i === todayIndex;
-        const zeroClass = hours <= 0 ? 'zero' : '';
-        
         gridHTML += `
             <div class="day-stat" style="${isToday ? 'border-bottom: 2px solid #00f3ff;' : ''}">
                 <span class="day-label">${dayNames[i]}</span>
-                <span class="hour-value ${zeroClass}">${hours}<span class="hour-unit">H</span></span>
-            </div>
-        `;
+                <span class="hour-value ${hours <= 0 ? 'zero' : ''}">${hours}<span class="hour-unit">H</span></span>
+            </div>`;
     }
-
     grid.innerHTML = gridHTML;
-
-    // Detailed Summary for Today
-    const todayData = data[todayIndex];
-    summary.innerText = (todayData && todayData.length > 0) 
-        ? todayData.join(' | ') 
-        : 'STANDBY MODE (NO ACCESS)';
+    summary.innerText = (data[todayIndex]?.length > 0) ? data[todayIndex].join(' | ') : 'STANDBY MODE (NO ACCESS)';
 }
 
+// --- API FETCHERS ---
 async function loadGlobalSettings() {
+    client = getClient();
+    if (!client) return;
     try {
-        const res = await fetch(`${API_URL}/settings/time`);
+        const res = await fetch(`${API_URL}/settings/time`, { headers: getHeaders(null, client) });
         if (!res.ok) throw new Error("Settings fetch failed");
-        
+
         const data = await res.json();
-        
-        // Map DB fields to the HTML Input elements
+            // Map DB fields to the HTML Input elements
         if (data.min_start_time) {
             document.getElementById('globalStart').value = data.min_start_time;
         }
@@ -148,18 +191,19 @@ function showAlert(type = 'info', title = 'SYSTEM MESSAGE', message = '') {
 }
 
 // --- Protected API ---
-async function secureApi(path, method, body) {
+async function secureApi(path, method, body, client = null) {
     const key = await requestPassword();
     if (!key) return;
 
     const res = await fetch(`${API_URL}${path}`, {
         method,
-        headers: { 'Content-Type': 'application/json', 'Authorization': key },
+        headers: getHeaders(key, client),
         body: JSON.stringify(body)
     });
 
-    if (res.status === 401) await showAlert('error', 'Security issue', "Invalid password used.");
-    else if (res.ok) {
+    if (res.status === 401) {
+        await showAlert('error', 'Security issue', "Invalid password used.");
+    } else if (res.ok) {
         closeModal();
         await showAlert('info', 'Action Successful', "Action completed successfully.");
         loadHistory();
@@ -168,6 +212,9 @@ async function secureApi(path, method, body) {
 
 // --- Actions ---
 document.getElementById('allowBtn').onclick = async () => {
+    client = getClient();
+    if(!client) return;
+    
     const checked = Array.from(document.querySelectorAll('.site-selector input:checked')).map(i => i.value);
     const manual = document.getElementById('customSite').value.trim();
     let sites = [...new Set([...checked, ...(manual ? [manual] : [])])];
@@ -176,27 +223,32 @@ document.getElementById('allowBtn').onclick = async () => {
          await showAlert('error', 'No webSite selected', "Please select at least one website.");
          return;
     }
-    secureApi('/allow', 'POST', { sites, duration: document.getElementById('duration').value });
+    secureApi('/allow', 'POST', { sites, duration: document.getElementById('duration').value }, client);
 };
 
-document.getElementById('stopBtn').onclick = () => secureApi('/stop', 'POST', {});
+document.getElementById('stopBtn').onclick = () => {
+    client = getClient();
+    if(!client) return;
+    
+    secureApi('/stop', 'POST', {}, client);
+}
 
 document.getElementById('changePassBtn').onclick = async () => {
-    const oldP = await requestPassword("Enter your current passowrd");
-    if (!oldP) return;
+    const oldPassword = await requestPassword("Enter your current passowrd");
+    if (!oldPassword) return;
     
     // For change password, we need a special flow for the new password
-    const n1 = await requestPassword("Enter your new passowrd");
-    if (!n1) return;    
-    const n2 = await requestPassword("Confirm your new password");
-    if (!n2) return;
-    if (n1 !== n2) 
+    const newPassword = await requestPassword("Enter your new passowrd");
+    if (!newPassword) return;    
+    const newPasswordRetypeed = await requestPassword("Confirm your new password");
+    if (!newPasswordRetypeed) return;
+    if (newPassword !== newPasswordRetypeed) 
         return await showAlert('error', 'Password not changed',"The 2 passwords do not match.");
 
     const res = await fetch(`${API_URL}/change-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': oldP },
-        body: JSON.stringify({ oldPassword: oldP, newPassword: n1 })
+        headers: getHeaders(oldPassword, null),
+        body: JSON.stringify({ oldPassword: oldPassword, newPassword: newPassword })
     });
     if (res.ok) await showAlert('info', 'Password Changed Successfully', "Password has been successfully changed.");
     else await showAlert('error', 'Password not changed',"Password Verification Failed.");
@@ -218,13 +270,16 @@ updateFirefoxAccessTime.onclick = async () => {
     const start = document.getElementById('pickerStart').value;
     const end = document.getElementById('pickerEnd').value;
 
+    client = getClient();
+    if(!client) return;
+
     const key = await requestPassword("AUTHORIZE TIME UPDATE");
     if (!key) return;
 
     try {
         const res = await fetch(`${API_URL}/settings/time`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': key },
+            headers: getHeaders(key, client),
             body: JSON.stringify({ min_start_time: start, max_start_time: end })
         });
 
@@ -239,7 +294,7 @@ updateFirefoxAccessTime.onclick = async () => {
             await showAlert('error', 'Update Failed', "Unauthorized access.");
         }
     } catch (error) {
-        console.error("Update error:", error);
+        console.error("Update Firefox Access Time Failed:", error);
     }
 };
 
@@ -253,33 +308,45 @@ closeSettingsBtn.onclick = () => {
     loadTargets(false); 
 };
 
+
 async function loadSchedule() {
+    client = getClient();
+    if (!client) return;
     try {
-        const res = await fetch(`${API_URL}/settings/poweronschedule`);
+        const res = await fetch(`${API_URL}/settings/poweronschedule`, { headers: getHeaders(null, client) });
         const data = await res.json();
-        updateSyntheticView(data.schedule)
+        updateSyntheticView(data.schedule);
         scheduler.setSchedule(data);
-    } catch (e) {
+    } catch (e) { 
         console.error("Failed to load schedule", e);
-    }
+            }
 }
 
 saveScheduledButton.onclick = async () => {
     const currentData = scheduler.getSchedule();
     const key = await requestPassword("AUTHORIZE POWER ON TIME UPDATE");
+    client = getClient();
+    if(!client) return;
+
     if (!key) return;
 
-    const res = await fetch(`${API_URL}/settings/poweronschedule`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': key },
-        body: JSON.stringify({ schedule: currentData })
-    });
+    try {
 
-    if (res.ok) {
-        await showAlert('info', 'Schedule Deployed', "Protocol updated successfully.");
-        updateSyntheticView(currentData);
-    } else {
-        await showAlert('error', 'Schedule update Failed', "Unauthorized access."); 
+        const res = await fetch(`${API_URL}/settings/poweronschedule`, {
+            method: 'POST',
+            headers: getHeaders(key, client),
+            body: JSON.stringify({ schedule: currentData })
+        });
+
+        if (res.ok) {
+            await showAlert('info', 'Schedule Deployed', "Protocol updated successfully.");
+            updateSyntheticView(currentData);
+        } else {
+            await showAlert('error', 'Schedule update Failed', "Unauthorized access."); 
+        }
+    } catch (e) {
+        console.error("PowerOn Schedule failed: ", e)
+
     }
 };
 
@@ -289,36 +356,39 @@ async function init() {
     loadTargets(false);
     loadHistory();
     loadGlobalSettings();
-
-    const res = await fetch(`${API_URL}/auth-status`);
-    const { initialized } = await res.json();
-    if (!initialized) {
-        await showAlert('warning', 'First start', "Please setup a password (Do not reuse any of your passwords).");
-        const p = await requestPassword();
-        await fetch(`${API_URL}/setup-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: p })
+    try {
+        const res = await fetch(`${API_URL}/auth-status`);
+        const { initialized } = await res.json();
+        if (!initialized) {
+            await showAlert('warning', 'First start', "Please setup a password (Do not reuse any of your passwords).");
+            const p = await requestPassword();
+            await fetch(`${API_URL}/setup-password`, {
+                method: 'POST',
+                headers: getHeaders(null, null),
+                body: JSON.stringify({ password: p })
+            });
+        }
+        loadHistory();
+        modalInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                // Prevent the default behavior (like form submission) 
+                event.preventDefault(); 
+                // Trigger the click event on the confirm button
+                modalConfirm.click();
+            }
         });
-    }
-    loadHistory();
-    modalInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            // Prevent the default behavior (like form submission) 
-            event.preventDefault(); 
-            // Trigger the click event on the confirm button
-            modalConfirm.click();
-        }
-    });
-    modalCancel.addEventListener('click', closeModal);
+        modalCancel.addEventListener('click', closeModal);
 
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && authModal.style.display !== 'none') {
-            closeModal();
-        }
-    });
-    console.log("Initialization complete, loading schedule...");
-    loadSchedule();
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && authModal.style.display !== 'none') {
+                closeModal();
+            }
+        });
+        console.log("Initialization complete, loading schedule...");
+        loadSchedule();
+    } catch (e) {
+        console.error("Init failed: ", e)
+    }
 }
 
 function formatFullCreationString(selectedSites, isoTimestamp, durationMins) {
@@ -345,57 +415,53 @@ function formatFullCreationString(selectedSites, isoTimestamp, durationMins) {
         result += ` for ${durationMins}m`;
     }
     return result;
+
 }
 
 async function loadHistory() {
-    const res = await fetch(`${API_URL}/history`);
-    const data = await res.json();
-    document.getElementById('historyList').innerHTML = data.map(i => `
-        <div class="log-item">
-            <strong>${i.action}</strong>: ${formatFullCreationString(i.sites, i.timestamp, i.duration_minutes)}
-        </div>
-    `).join('');
-}
-
-// Update this function in app.js
-async function loadTargets(isManagementMode = false) {
-    const res = await fetch(`${API_URL}/targets`);
-    const targets = await res.json();
-    const container = document.getElementById('siteSelector');
-    
-    if (isManagementMode) {
-        // Render inside the Settings Modal with delete buttons
-        const container = document.getElementById('modalSiteList');
-        container.innerHTML = targets.map(site => `
-            <div class="modal-site-item">
-                <span>${site.name} (${site.address})</span>
-                <button class="btn-danger" style="padding: 5px 10px; font-size: 10px;" 
-                    onclick="deleteTarget(${site.id}, '${site.name}')">REMOVE</button>
+    client = getClient();
+    if(!client) return;
+    try {
+        const res = await fetch(`${API_URL}/history`, {headers: getHeaders(null, client)});
+        const data = await res.json();
+        document.getElementById('historyList').innerHTML = data.map(i => `
+            <div class="log-item">
+                <small>[${i.client_id}]</small> <strong>${i.action}</strong>: 
+                ${formatFullCreationString(i.sites, i.timestamp, i.duration_minutes)}
             </div>
         `).join('');
-    } else {
-        // Render on Main Page (Selection Only)
-        const container = document.getElementById('siteSelector');
-        container.innerHTML = targets.map(site => `
-            <label class="site-btn">
-                <input type="checkbox" value="${site.address}">
-                <span>${site.name}</span>
-            </label>
-        `).join('');
+    } catch (e) { 
+        console.error("Load history failed: ", e); 
     }
 }
 
-// Add this new function
+async function loadTargets(isManagementMode = false) {
+    const res = await fetch(`${API_URL}/targets`, { headers: getHeaders() });
+    const targets = await res.json();
+    
+    if (isManagementMode) {
+        document.getElementById('modalSiteList').innerHTML = targets.map(site => `
+            <div class="modal-site-item">
+                <span>${site.name}</span>
+                <button class="btn-danger" style="padding: 5px 10px; font-size: 10px;" 
+                    onclick="deleteTarget(${site.id}, '${site.name}')">REMOVE</button>
+            </div>`).join('');
+    } else {
+        document.getElementById('siteSelector').innerHTML = targets.map(site => `
+            <label class="site-btn">
+                <input type="checkbox" value="${site.address}">
+                <span>${site.name}</span>
+            </label>`).join('');
+    }
+}
+
 window.deleteTarget = async (id, name) => {
     const confirmDelete = await requestPassword(`DELETE ${name.toUpperCase()}?`);
     if (!confirmDelete) return;
 
     const res = await fetch(`${API_URL}/targets/${id}`, {
         method: 'DELETE',
-        headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': confirmDelete 
-        }
+        headers: getHeaders(confirmDelete, null)
     });
 
     if (res.ok) {
@@ -417,23 +483,22 @@ document.getElementById('addNewTargetBtn').onclick = async () => {
     // Reuse your existing secureApi logic or call fetch directly with auth
     const key = await requestPassword("AUTHORIZE NEW TARGET");
     if (!key) return;
-
-    const res = await fetch(`${API_URL}/targets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': key },
-        body: JSON.stringify({ name, address })
+    const res = await fetch(`${API_URL}/targets`, { 
+        method: 'POST', 
+        headers: getHeaders(key, null), 
+        body: JSON.stringify({ name, address }) 
     });
-
-    if (res.ok) {
+   if (res.ok) {
         document.getElementById('newSiteName').value = '';
         document.getElementById('newSiteAddress').value = '';
         await showAlert('info', 'Target Added', `${name} is now in your mission list.`);
-        loadTargets(true);
+        loadTargets(true); // loadTargets(false);
     } else {
         await showAlert('error', 'Unauthorized', "Invalid password.");
     }
 };
 
+// --- STARFIELD ANIMATION ---
 init();
 
 
