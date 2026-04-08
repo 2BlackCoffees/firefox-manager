@@ -50,6 +50,12 @@ Before running the installation script, ensure you have your environment variabl
 
 ---
 
+#### Initial applications
+Install:
+`sudo apt install firefox -y`
+`sudo apt-get install git-all -y`
+`git clone https://github.com/2BlackCoffees/firefox-manager.git`
+
 #### Configure Web Remote Control (Optional)
 
 If you intend to control Firefox remotely via the cloud application, you must configure your environment variables first.
