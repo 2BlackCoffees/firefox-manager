@@ -40,9 +40,11 @@ async function setClient(id) {
     localStorage.setItem('last_selected_client', id);
     
     // Refresh client-specific data
-    loadGlobalSettings();
-    loadHistory();
-    loadSchedule();
+    await Promise.all([
+        loadGlobalSettings(),
+        loadHistory(),
+        loadSchedule()
+    ]);
 }
 
 function getClient() {
@@ -54,10 +56,13 @@ function getClient() {
 
 async function initClientList(adminPassword) {
     try {
+        console.log(`Address server: ${API_URL}/clients`)
+        //console.log(`'Authorization': ${adminPassword}`)
         const res = await fetch(`${API_URL}/clients`, {
             headers: { 'Authorization': adminPassword }
         });
         const clients = await res.json();
+        console.log(`Client list:`, clients);
         
         if (clientSelector) {
             clientSelector.innerHTML = clients.map(c => 
@@ -75,6 +80,11 @@ async function initClientList(adminPassword) {
     } catch (e) {
         console.error("Failed to load clients", e);
     }
+    // Now that selectedClientId is guaranteed, load the rest
+    loadTargets(false);
+    loadHistory();
+    loadGlobalSettings();
+    loadSchedule();
 }
 
 // --- DATA CALCULATION & UI ---
@@ -112,7 +122,7 @@ function updateSyntheticView(data) {
 
 // --- API FETCHERS ---
 async function loadGlobalSettings() {
-    client = getClient();
+    const client = getClient();
     if (!client) return;
     try {
         const res = await fetch(`${API_URL}/settings/time`, { headers: getHeaders(null, client) });
@@ -212,7 +222,7 @@ async function secureApi(path, method, body, client = null) {
 
 // --- Actions ---
 document.getElementById('allowBtn').onclick = async () => {
-    client = getClient();
+    const client = getClient();
     if(!client) return;
     
     const checked = Array.from(document.querySelectorAll('.site-selector input:checked')).map(i => i.value);
@@ -227,7 +237,7 @@ document.getElementById('allowBtn').onclick = async () => {
 };
 
 document.getElementById('stopBtn').onclick = () => {
-    client = getClient();
+    const client = getClient();
     if(!client) return;
     
     secureApi('/stop', 'POST', {}, client);
@@ -270,7 +280,7 @@ updateFirefoxAccessTime.onclick = async () => {
     const start = document.getElementById('pickerStart').value;
     const end = document.getElementById('pickerEnd').value;
 
-    client = getClient();
+    const client = getClient();
     if(!client) return;
 
     const key = await requestPassword("AUTHORIZE TIME UPDATE");
@@ -310,22 +320,22 @@ closeSettingsBtn.onclick = () => {
 
 
 async function loadSchedule() {
-    client = getClient();
+    const client = getClient();
     if (!client) return;
     try {
         const res = await fetch(`${API_URL}/settings/poweronschedule`, { headers: getHeaders(null, client) });
         const data = await res.json();
-        updateSyntheticView(data.schedule);
         scheduler.setSchedule(data);
+        updateSyntheticView(data.schedule);
     } catch (e) { 
         console.error("Failed to load schedule", e);
-            }
+    }
 }
 
 saveScheduledButton.onclick = async () => {
     const currentData = scheduler.getSchedule();
     const key = await requestPassword("AUTHORIZE POWER ON TIME UPDATE");
-    client = getClient();
+    const client = getClient();
     if(!client) return;
 
     if (!key) return;
@@ -350,46 +360,71 @@ saveScheduledButton.onclick = async () => {
     }
 };
 
-// --- Initialization ---
 async function init() {
-
-    loadTargets(false);
-    loadHistory();
-    loadGlobalSettings();
-    try {
-        const res = await fetch(`${API_URL}/auth-status`);
-        const { initialized } = await res.json();
-        if (!initialized) {
-            await showAlert('warning', 'First start', "Please setup a password (Do not reuse any of your passwords).");
-            const p = await requestPassword();
-            await fetch(`${API_URL}/setup-password`, {
-                method: 'POST',
-                headers: getHeaders(null, null),
-                body: JSON.stringify({ password: p })
-            });
-        }
-        loadHistory();
-        modalInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                // Prevent the default behavior (like form submission) 
-                event.preventDefault(); 
-                // Trigger the click event on the confirm button
-                modalConfirm.click();
-            }
+    // 1. Check if the system even has a password yet
+    const authRes = await fetch(`${API_URL}/auth-status`);
+    const { initialized } = await authRes.json();
+    
+    if (!initialized) {
+        await showAlert('warning', 'First start', "Please setup a password.");
+        const p = await requestPassword();
+        await fetch(`${API_URL}/setup-password`, {
+            method: 'POST',
+            body: JSON.stringify({ password: p }),
+            headers: getHeaders(null, null)
         });
-        modalCancel.addEventListener('click', closeModal);
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && authModal.style.display !== 'none') {
-                closeModal();
-            }
-        });
-        console.log("Initialization complete, loading schedule...");
-        loadSchedule();
-    } catch (e) {
-        console.error("Init failed: ", e)
     }
+
+    // 2. Load the client list and WAIT for it to set the selectedClientId
+    // We need the admin password to even see the client list based on your server code
+    const adminKey = await requestPassword("Unlock Admin Console");
+    if (!adminKey) return; 
+
+    await initClientList(adminKey); 
+
+
 }
+
+// --- Initialization ---
+// async function init() {
+
+//     loadTargets(false);
+//     loadHistory();
+//     loadGlobalSettings();
+//     try {
+//         const res = await fetch(`${API_URL}/auth-status`);
+//         const { initialized } = await res.json();
+//         if (!initialized) {
+//             await showAlert('warning', 'First start', "Please setup a password (Do not reuse any of your passwords).");
+//             const p = await requestPassword();
+//             await fetch(`${API_URL}/setup-password`, {
+//                 method: 'POST',
+//                 headers: getHeaders(null, null),
+//                 body: JSON.stringify({ password: p })
+//             });
+//         }
+//         loadHistory();
+//         modalInput.addEventListener('keydown', (event) => {
+//             if (event.key === 'Enter') {
+//                 // Prevent the default behavior (like form submission) 
+//                 event.preventDefault(); 
+//                 // Trigger the click event on the confirm button
+//                 modalConfirm.click();
+//             }
+//         });
+//         modalCancel.addEventListener('click', closeModal);
+
+//         window.addEventListener('keydown', (e) => {
+//             if (e.key === 'Escape' && authModal.style.display !== 'none') {
+//                 closeModal();
+//             }
+//         });
+//         console.log("Initialization complete, loading schedule...");
+//         loadSchedule();
+//     } catch (e) {
+//         console.error("Init failed: ", e)
+//     }
+// }
 
 function formatFullCreationString(selectedSites, isoTimestamp, durationMins) {
     const date = new Date(isoTimestamp);
@@ -419,7 +454,7 @@ function formatFullCreationString(selectedSites, isoTimestamp, durationMins) {
 }
 
 async function loadHistory() {
-    client = getClient();
+    const client = getClient();
     if(!client) return;
     try {
         const res = await fetch(`${API_URL}/history`, {headers: getHeaders(null, client)});

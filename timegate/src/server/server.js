@@ -16,7 +16,7 @@ app.use(express.json());
 // Global Admin Auth (One password for all)
 const checkAuth = async (req, res, next) => {
     const password = req.headers['authorization'];
-    const result = await pool.query('SELECT value FROM settings WHERE key = $1', ['admin_password']);
+    const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id IS NULL', ['admin_password']);
     if (result.rows.length === 0) return res.status(403).json({ error: 'Not initialized' });
     
     const match = await bcrypt.compare(password || '', result.rows[0].value);
@@ -159,7 +159,7 @@ app.post('/api/stop', getClient, checkAuth, async (req, res) => {
 });
 
 // server.js - Update this specific route
-app.get('/api/history', checkAuth, async (req, res) => {
+app.get('/api/history', async (req, res) => {
     try {
         const result = await pool.query(
             //"SELECT id, sites, duration_minutes, status FROM allowances"
@@ -172,7 +172,7 @@ app.get('/api/history', checkAuth, async (req, res) => {
 });
 
 // Get current global time settings
-app.get('/api/settings/time', getClient, checkAuth, async (req, res) => {
+app.get('/api/settings/time', getClient, async (req, res) => {
     try {
         const result = await pool.query('SELECT min_start_time, max_start_time FROM global_settings WHERE client_id = $1',
             [req.clientId]
@@ -231,7 +231,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 
 // Get all saved site targets
-app.get('/api/targets', checkAuth, async (req, res) => {
+app.get('/api/targets', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM targets ORDER BY name ASC');
         res.json(result.rows);
@@ -266,7 +266,7 @@ app.delete('/api/targets/:id', checkAuth, async (req, res) => {
 });
 
 // Get the power-on schedule
-app.get('/api/settings/poweronschedule', getClient, checkAuth, async (req, res) => {
+app.get('/api/settings/poweronschedule', getClient, async (req, res) => {
     try {
         const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id = $2', ['power_on_schedule', req.clientId]);
         if (result.rows.length > 0) {
@@ -274,7 +274,7 @@ app.get('/api/settings/poweronschedule', getClient, checkAuth, async (req, res) 
             res.json({ schedule: JSON.parse(result.rows[0].value) });
         } else {
             // Return default empty structure if not set
-            res.json({ schedule: {i: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []} });
+            res.json({ schedule: {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []} });
         }
     } catch (err) {
         res.status(500).json({ error: err.message });

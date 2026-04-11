@@ -1,0 +1,24 @@
+/* Multi-Client Selector Styles */
+.client-context-picker {
+    margin-top: 15px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--cyan-dark);
+}
+
+#clientSelector {
+    background: transparent;
+    color: var(--cyan-neon);
+    font-family: 'Orbitron';
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+#clientSelector option {
+    background: #050505;
+    color: var(--cyan-neon);
+}
