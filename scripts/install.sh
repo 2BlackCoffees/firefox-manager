@@ -165,9 +165,6 @@ test() {
     tail -n 60 /var/log/firefox_usage.log
 }
 
-
-
-
 if [ ! -f $MAIL_CONFIG ]; then
     echo ""
     echo "Mail Configuration file not found."

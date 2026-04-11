@@ -391,7 +391,7 @@ class TimeRangeChecker:
 
         Logger.log("Waiting for Bash to provide fresh config...")
         
-        # Block until the file is created by Bash
+        # Block until the hand shake file is created by Bash
         while not os.path.exists(self.config_file):
             time.sleep(1)
         
