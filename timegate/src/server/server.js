@@ -1,7 +1,8 @@
-const express = require('express');
-const { Pool } = require('pg');
-const cors = require('cors');
-const bcrypt = require('bcrypt');
+import express, { json } from 'express';
+import { Pool } from 'pg';
+import cors from 'cors';
+import { compare, hash } from 'bcrypt';
+import logger from 'logger';
 require('dotenv').config();
 
 const app = express();
@@ -9,7 +10,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejec
 const SALT_ROUNDS = 10;
 
 app.use(cors());
-app.use(express.json());
+app.use(json());
 
 // --- MIDDLEWARE ---
 
@@ -18,8 +19,14 @@ const checkAuth = async (req, res, next) => {
     const password = req.headers['authorization'];
     const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id IS NULL', ['admin_password']);
     if (result.rows.length === 0) return res.status(403).json({ error: 'Not initialized' });
+
+    logger.info({ 
+        message: `Verification password attempt: ${password} vs ${result.rows[0].value}`, 
+        path: req.url,
+        method: req.method 
+    });
     
-    const match = await bcrypt.compare(password || '', result.rows[0].value);
+    const match = await compare(password || '', result.rows[0].value);
     if (match) next();
     else res.status(401).json({ error: 'Unauthorized' });
 };
@@ -89,7 +96,12 @@ app.post('/api/setup-password', async (req, res) => {
     const { password } = req.body;
     const check = await pool.query('SELECT 1 FROM settings WHERE key = $1', ['admin_password']);
     if (check.rows.length > 0) return res.status(300).send("Already set");
-    const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+    const hashed = await hash(password, SALT_ROUNDS);
+    logger.info({ 
+        message: `Setup password attempt: ${password} vs ${hashed}`, 
+        path: req.url,
+        method: req.method 
+    });
     await pool.query('INSERT INTO settings (key, value) VALUES ($1, $2)', ['admin_password', hashed]);
     res.json({ success: true });
 });
@@ -97,11 +109,11 @@ app.post('/api/setup-password', async (req, res) => {
 app.post('/api/change-password', checkAuth, async (req, res) => {
     const { oldPassword, newPassword } = req.body;
     const result = await pool.query('SELECT value FROM settings WHERE key = $1', ['admin_password']);
-    const match = await bcrypt.compare(oldPassword, result.rows[0].value);
+    const match = await compare(oldPassword, result.rows[0].value);
     
     if (!match) return res.status(401).json({ error: "Old password incorrect" });
     
-    const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    const hashed = await hash(newPassword, SALT_ROUNDS);
     await pool.query('UPDATE settings SET value = $1 WHERE key = $2', [hashed, 'admin_password']);
     res.json({ success: true });
 });
@@ -307,4 +319,4 @@ app.post('/api/settings/poweronschedule', getClient, checkAuth, async (req, res)
 });
 
 
-module.exports = app;
+export default app;
