@@ -66,7 +66,7 @@ If you intend to control Firefox remotely via the cloud application, you must co
 ```bash
 # Sensitive API Info
 TIMEGATE_API_URL="Your project-name.vercel.app alias" # WITHOUT A TRAILING SLASH!!!!
-TIMEGATE_BYPASS_SECRET="Your TIMEGATE_BYPASS_SECRET"
+TIMEGATE_API_SECRET="Your personnally defined TIMEGATE_API_SECRET with high enthropy"
 
 ```
 

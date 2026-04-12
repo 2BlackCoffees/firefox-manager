@@ -85,6 +85,9 @@ In the project root, run:
 vercel link  # Accept defaults
 vercel env add DATABASE_URL production
 # Mark it sensitive and When prompted for the value, paste your Neon Connection String
+vercel env add TIMEGATE_API_SECRET production
+# Mark it sensitive and When prompted for the value, paste your API restricted access string, ensure to provide a high entropy string
+
 
 ```
 If you need to modify the variable, you will first have to remove it:
@@ -100,9 +103,17 @@ npx vercel@latest deploy --prod --force
 Once deployment is over, `Vercel` will provide the alias to the dns addres address of the endpoint. 
 Copy this alias that will be needed as explained in the main `README.md` file.
 4. **Security (Bypass Secret):**
-To secure your deployments, navigate to your Vercel Project Settings > **Deployment Protection**. Ensure Vercel Authentication is enabled and create your `TIMEGATE_BYPASS_SECRET`.
+To secure your deployments, you wi.
 
 In the main README.md file, this value will be require to properly bind the backend with the local linux computer.
+
+5. **Password forgotten:**
+Currently there is no way to reset your password with a built in functionality. The only way is to connect to the DB and then type the following:
+```sql
+DELETE FROM settings WHERE key = 'admin_password';
+```
+
+After this reload your pages (On a browser or on your phone). A new password will be requested.
 
 # Create a launch icon on your mobile
 ## iPhone (iOS Safari)
