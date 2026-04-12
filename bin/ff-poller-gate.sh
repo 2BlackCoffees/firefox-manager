@@ -62,12 +62,12 @@ register_device() {
     local DEVICE_NAME=$(hostname)
 
     log "Registering $DEVICE_NAME ($MAC_ADDR) with backend..."
-
+    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" -d \"{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/register\""
     RESPONSE=$(curl -s -X POST \
         -H "Content-Type: application/json" \
         -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" \
         -d "{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}" \
-        "$TIMEGATE_API_URL/api/clients/register")
+        "$TIMEGATE_API_URL/api/register")
 
     if [[ $? -eq 0 ]]; then
         REGISTERED_ID="$DEVICE_NAME"

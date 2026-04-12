@@ -57,7 +57,13 @@ const getClient = (req, res, next) => {
 // --- REGISTRATION LOGIC ---
 
 app.post('/api/register', async (req, res) => {
-    const { suggested_client_id, unique_key } = req.body; // unique_key = MAC address
+    if (!('id' in req.body) || !('unique_key' in req.body)) {
+        console.log('Invalid registration request (expecting id and unique_key):', req.body);
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+    const suggested_client_id = req.body.id;
+    const unique_key = req.body.unique_key;
+    console.log(req.body, 'Received registration request with suggested ID and unique key:', suggested_client_id, unique_key);
     if (!suggested_client_id || !unique_key) return res.status(400).json({ error: "Missing suggested ID or Unique Key" });
 
     try {
@@ -129,7 +135,7 @@ app.post('/api/change-password', checkAuth, async (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/clients', checkAuth, async (req, res) => {
+app.get('/api/clients', async (req, res) => {
     const result = await pool.query('SELECT id, created_at FROM clients ORDER BY created_at DESC');
     res.json(result.rows);
 });
