@@ -1,5 +1,5 @@
 {
-  "name": "timegate",
+  "name": "timegate-ninja-prod",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -15,7 +15,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "parcel": "^2.16.3",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "pino": "^10.3.1"
   },
   "devDependencies": {
     "@parcel/packager-raw-url": "^2.16.3",
