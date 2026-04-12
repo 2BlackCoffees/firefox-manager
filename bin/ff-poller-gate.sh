@@ -41,8 +41,8 @@ to_seconds() {
 
 call_api() {
     local endpoint=$1
-    log "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" -H \"x-client-id: $REGISTERED_ID\" \"${TIMEGATE_API_URL}$endpoint\""
-    curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" \
+    log "curl -s -H \"Authorization: Bearer $TIMEGATE_BYPASS_SECRET\" -H \"x-client-id: $REGISTERED_ID\" \"${TIMEGATE_API_URL}$endpoint\""
+    curl -s -H "Authorization: Bearer $TIMEGATE_BYPASS_SECRET" \
             -H "x-client-id: $REGISTERED_ID" \
             "${TIMEGATE_API_URL}$endpoint"
 }
@@ -62,10 +62,10 @@ register_device() {
     local DEVICE_NAME=$(hostname)
 
     log "Registering $DEVICE_NAME ($MAC_ADDR) with backend..."
-    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" -d \"{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/register\""
+    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_BYPASS_SECRET\" -d \"{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/register\""
     RESPONSE=$(curl -s -X POST \
         -H "Content-Type: application/json" \
-        -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" \
+        -H "Authorization: Bearer $TIMEGATE_BYPASS_SECRET" \
         -d "{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}" \
         "$TIMEGATE_API_URL/api/register")
 
