@@ -54,13 +54,11 @@ function getClient() {
     return selectedClientId
 }
 
-async function initClientList(adminPassword) {
+async function initClientList() {
     try {
         console.log(`Address server: ${API_URL}/clients`)
         //console.log(`'Authorization': ${adminPassword}`)
-        const res = await fetch(`${API_URL}/clients`, {
-            headers: { 'Authorization': adminPassword }
-        });
+        const res = await fetch(`${API_URL}/clients`, { headers: getHeaders(null, null) });
         const clients = await res.json();
         console.log(`Client list:`, clients);
         
@@ -380,12 +378,8 @@ async function init() {
         });
     }
 
-    // 2. Load the client list and WAIT for it to set the selectedClientId
-    // We need the admin password to even see the client list based on your server code
-    const adminKey = await requestPassword("Unlock Admin Console");
-    if (!adminKey) return; 
-
-    await initClientList(adminKey); 
+    // Load the client list and WAIT for it to set the selectedClientId
+    await initClientList(); 
 
 
 }
