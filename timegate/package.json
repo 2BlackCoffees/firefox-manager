@@ -1,6 +1,7 @@
 {
   "name": "timegate",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "start": "node src/server/server.js",
     "build": "parcel build ./public/index.html --dist-dir dist"

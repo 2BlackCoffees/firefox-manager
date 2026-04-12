@@ -1,9 +1,8 @@
 import express, { json } from 'express';
-import { Pool } from 'pg';
 import cors from 'cors';
+import { Pool } from 'pg';
 import { compare, hash } from 'bcrypt';
-import logger from 'logger';
-require('dotenv').config();
+import 'dotenv/config'; 
 
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
@@ -12,6 +11,22 @@ const SALT_ROUNDS = 10;
 app.use(cors());
 app.use(json());
 
+async function debugInfo() {
+    try {
+        const checkId = await pool.query('SELECT * FROM clients');
+        console.log('Clients in database:', checkId.rows);
+
+        const select = await pool.query('SELECT min_start_time, max_start_time FROM global_settings');
+        console.log('Global settings:', select.rows);
+        
+    } catch (err) {
+        console.error({ err }, 'Failed to run debug info');
+    }
+}
+
+// Call it as an async function
+debugInfo();
+
 // --- MIDDLEWARE ---
 
 // Global Admin Auth (One password for all)
@@ -19,12 +34,6 @@ const checkAuth = async (req, res, next) => {
     const password = req.headers['authorization'];
     const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id IS NULL', ['admin_password']);
     if (result.rows.length === 0) return res.status(403).json({ error: 'Not initialized' });
-
-    logger.info({ 
-        message: `Verification password attempt: ${password} vs ${result.rows[0].value}`, 
-        path: req.url,
-        method: req.method 
-    });
     
     const match = await compare(password || '', result.rows[0].value);
     if (match) next();
@@ -54,9 +63,11 @@ app.post('/api/register', async (req, res) => {
     try {
         // 1. Check if this specific device is already registered
         const existingDevice = await pool.query('SELECT id FROM clients WHERE unique_key = $1', [unique_key]);
+        console.log('Existing device check:', existingDevice.rows);
         if (existingDevice.rows.length > 0) {
             return res.status(300).json({ id: existingDevice.rows[0].id, message: "Already registered" });
         }
+        console.log('Requested device not found, proceeding with registration for suggested name:', suggested_client_id);
 
         // 2. Handle ID conflict and generate a new one if necessary
         let finalId = suggested_client_id;
@@ -72,6 +83,7 @@ app.post('/api/register', async (req, res) => {
                 finalId = `${suggested_client_id}_${attempt}`;
             }
         }
+        console.log('Suggested name changed to', finalId, 'after checking for conflicts. Proceeding with registration.');
 
         // 3. Register the new client
         await pool.query('INSERT INTO clients (id, unique_key) VALUES ($1, $2)', [finalId, unique_key]);
@@ -81,6 +93,8 @@ app.post('/api/register', async (req, res) => {
             'INSERT INTO global_settings (client_id) VALUES ($1) ON CONFLICT DO NOTHING', 
             [finalId]
         );
+
+        console.log('Client registered successfully with ID:', finalId);
 
         res.status(200).json({ id: finalId, message: "Newly registered" });
 
@@ -97,13 +111,10 @@ app.post('/api/setup-password', async (req, res) => {
     const check = await pool.query('SELECT 1 FROM settings WHERE key = $1', ['admin_password']);
     if (check.rows.length > 0) return res.status(300).send("Already set");
     const hashed = await hash(password, SALT_ROUNDS);
-    logger.info({ 
-        message: `Setup password attempt: ${password} vs ${hashed}`, 
-        path: req.url,
-        method: req.method 
-    });
+
     await pool.query('INSERT INTO settings (key, value) VALUES ($1, $2)', ['admin_password', hashed]);
     res.json({ success: true });
+    console.log('Admin password set up successfully');
 });
 
 app.post('/api/change-password', checkAuth, async (req, res) => {
@@ -213,9 +224,6 @@ app.post('/api/settings/time', getClient, checkAuth, async (req, res) => {
     }
 });
 
-
-
-
 app.get('/api/poll', getClient, checkAuth, async (req, res) => {
     const result = await pool.query('DELETE FROM allowances WHERE id = (SELECT id FROM allowances WHERE client_id = $1 ORDER BY created_at ASC LIMIT 1) RETURNING *',
                                     [req.clientId]
@@ -304,10 +312,8 @@ app.post('/api/settings/poweronschedule', getClient, checkAuth, async (req, res)
     try {
 
         await pool.query(
-                `INSERT INTO settings (client_id, key, value) 
-                VALUES ($1, $2, $3) 
-                ON CONFLICT (client_id, key) 
-                DO UPDATE SET value = EXCLUDED.value`,
+                `INSERT INTO settings (client_id, key, value) VALUES ($1, $2, $3) 
+                 ON CONFLICT (client_id, key) DO UPDATE SET value = EXCLUDED.value`,
                 [req.clientId, 'power_on_schedule', JSON.stringify(schedule)]
         );
 
