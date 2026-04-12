@@ -24,6 +24,21 @@ async function debugInfo() {
     }
 }
 
+export async function isAuthorized(req) {
+  // 1. Get the key from the incoming request header
+  const authHeader = req.headers.get('Authorization');
+  const providedKey = authHeader?.replace('Bearer ', '');
+
+  // 2. Get your secret key from your Vercel Environment Variables
+  const validKey = process.env.TIMEGATE_API_SECRET;
+
+  // 3. Compare them
+  if (!providedKey || providedKey !== validKey) {
+    return false;
+  }
+  return true;
+}
+
 // Call it as an async function
 debugInfo();
 
@@ -37,7 +52,7 @@ const checkAuth = async (req, res, next) => {
     
     const match = await compare(password || '', result.rows[0].value);
     if (match) next();
-    else res.status(401).json({ error: 'Unauthorized' });
+    else res.status(401).json({ error: 'Unauthorized password' });
 };
 
 app.get('/api/auth-status', async (req, res) => {
@@ -57,7 +72,10 @@ const getClient = (req, res, next) => {
 // --- REGISTRATION LOGIC ---
 
 app.post('/api/register', async (req, res) => {
-    if (!('id' in req.body) || !('unique_key' in req.body)) {
+    if (!isAuthorized(req)) {
+        return res.status(401).json({ error: 'Unauthorized API Key' });
+    }
+    if (!('id' in req.body) || !('unique_key' in req.body) ) {
         console.log('Invalid registration request (expecting id and unique_key):', req.body);
         return res.status(400).json({ error: "Missing required fields" });
     }
@@ -231,6 +249,9 @@ app.post('/api/settings/time', getClient, checkAuth, async (req, res) => {
 });
 
 app.get('/api/poll', getClient, checkAuth, async (req, res) => {
+    if (!isAuthorized(req)) {
+        return res.status(401).json({ error: 'Unauthorized API Key' });
+    }
     const result = await pool.query('DELETE FROM allowances WHERE id = (SELECT id FROM allowances WHERE client_id = $1 ORDER BY created_at ASC LIMIT 1) RETURNING *',
                                     [req.clientId]
     );
