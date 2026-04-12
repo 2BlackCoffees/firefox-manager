@@ -26,7 +26,7 @@ async function debugInfo() {
 
 export async function isAuthorized(req) {
   // 1. Get the key from the incoming request header
-  const authHeader = req.headers.get('Authorization');
+  const authHeader = req.headers['Authorization'];
   const providedKey = authHeader?.replace('Bearer ', '');
 
   // 2. Get your secret key from your Vercel Environment Variables
@@ -248,7 +248,7 @@ app.post('/api/settings/time', getClient, checkAuth, async (req, res) => {
     }
 });
 
-app.get('/api/poll', getClient, checkAuth, async (req, res) => {
+app.get('/api/poll', getClient, async (req, res) => {
     if (!isAuthorized(req)) {
         return res.status(401).json({ error: 'Unauthorized API Key' });
     }
@@ -257,7 +257,7 @@ app.get('/api/poll', getClient, checkAuth, async (req, res) => {
     );
     if (result.rows.length > 0) {
         const status = result.rows[0].status;
-        new_status = 'none'
+        var new_status = 'none'
         if (status != 'none') {
             new_status = status + '_fetched_by_child';
         }
