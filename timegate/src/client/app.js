@@ -367,10 +367,15 @@ async function init() {
     
     if (!initialized) {
         await showAlert('warning', 'First start', "Please setup a password.");
-        const p = await requestPassword();
+        const n1 = await requestPassword("Enter your passowrd");
+        if (!n1) return;    
+        const n2 = await requestPassword("Confirm your password");
+        if (!n2) return;
+        if (n1 !== n2) 
+            return await showAlert('error', 'Password not set',"The 2 passwords do not match.");
         await fetch(`${API_URL}/setup-password`, {
             method: 'POST',
-            body: JSON.stringify({ password: p }),
+            body: JSON.stringify({ password: n1 }),
             headers: getHeaders(null, null)
         });
     }
