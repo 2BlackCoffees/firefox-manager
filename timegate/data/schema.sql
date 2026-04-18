@@ -63,8 +63,8 @@ CREATE TABLE global_settings (
 );
 
 -- 8. Seed Initial Data
-INSERT INTO clients (id, unique_key) VALUES ('samsung', '00:1A:2B:3C:4D:5E');
-INSERT INTO clients (id, unique_key) VALUES ('acer', '00:1A:2B:3C:4D:5F');
+-- INSERT INTO clients (id, unique_key) VALUES ('samsung', '00:1A:2B:3C:4D:5E');
+-- INSERT INTO clients (id, unique_key) VALUES ('acer', '00:1A:2B:3C:4D:5F');
 
 INSERT INTO targets (name, address) VALUES 
 ('Youtube', 'youtube.com'),
@@ -72,8 +72,7 @@ INSERT INTO targets (name, address) VALUES
 ('WhatsApp', 'web.whatsapp.com');
 
 
-INSERT INTO global_settings (client_id, min_start_time, max_start_time) 
-VALUES ('samsung', '09:00:00', '18:30:00');
-INSERT INTO global_settings (client_id, min_start_time, max_start_time) 
-VALUES ('acer', '07:03:00', '23:34:00');
-
+-- INSERT INTO global_settings (client_id, min_start_time, max_start_time) 
+-- VALUES ('samsung', '09:00:00', '18:30:00');
+-- INSERT INTO global_settings (client_id, min_start_time, max_start_time) 
+-- VALUES ('acer', '07:03:00', '23:34:00');
