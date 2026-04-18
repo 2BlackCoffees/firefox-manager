@@ -631,6 +631,57 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     overflow: hidden;    /* Ensures span doesn't spill over rounded corners */
 }
 
+/* Styling the Combo Box to match the Allow Button + Dropdown Indicator */
+#clientSelector {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    
+    cursor: pointer;
+    text-align: center;
+    text-align-last: center;
+    
+    /* Animation & Gradient */
+    background: linear-gradient(45deg, #05e5f150, #09dde425);
+    background-size: 800% 800%;
+    animation: pulseGradient 3s infinite;
+    
+    /* THE DROPDOWN ARROW: Using a data URI SVG for a sharp cyan chevron */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2300f2ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 18px;
+
+    /* Spacing & Font */
+    min-height: 50px;
+    padding: 0 40px; /* Extra padding on right for the arrow */
+    font-family: 'Orbitron', sans-serif;
+    font-weight: bold;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    
+    border: 1px solid var(--cyan-dark);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+/* Hover state remains consistent with the rest of the UI */
+#clientSelector:hover {
+    filter: brightness(1.2);
+    box-shadow: 0 0 20px var(--cyan);
+    transform: translateY(-1px);
+}
+
+/* Ensure options look like part of the system */
+#clientSelector option {
+    background-color: #050505; /* Matches your --bg-dark */
+    color: #00f2ff;
+    font-family: 'Orbitron', sans-serif;
+    padding: 10px;
+}
+
 .btn-cyan span  {
 
 
