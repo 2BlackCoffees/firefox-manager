@@ -17,13 +17,18 @@
       "dest": "src/server/server.js"
     },
     {
-      "src": "/(.*)",
+      "src": "/(manifest\\.webmanifest|.*\\.png|.*\\.css|.*\\.js)",
       "dest": "/$1",
-      "check": true
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Access-Control-Allow-Origin": "*"
+      }
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "status": 404,
       "dest": "index.html"
     }
   ]
