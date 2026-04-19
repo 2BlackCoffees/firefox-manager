@@ -11,7 +11,7 @@ const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const SALT_ROUNDS = 10;
 const DEFAULT_TTL = 45; // Default TTL in seconds if not set in DB or Redis
-const TTL_PER_CLIENT = 5; // Assuming one client alone we use this TTL, and it increases by this amount for each additional client (e.g., 5s for 1 client, 10s for 2 clients, etc.)
+const TTL_PER_CLIENT = 10; // TTL per client to ensure we don't exceed quota considering 1 client 24 hours = 86400 seconds, so 10s TTL allows for ~8640 requests/day which is under our 10k quota with some buffer.
 
 app.use(cors());
 app.use(json());
@@ -128,7 +128,7 @@ app.get('/api/clients/get-status', getClient, async (req, res) => {
         pipeline.ttl(getRedisStatusKey(req.clientId));
         
         // 3. Get the configured TTL for this device
-        pipeline.get(`config:ttl:${req.clientId}`);
+        pipeline.get(getRedisTTLKey(req.clientId));
 
         const [exists, remaining, configTtl] = await pipeline.exec();
 
@@ -138,7 +138,7 @@ app.get('/api/clients/get-status', getClient, async (req, res) => {
             const result = await pool.query('SELECT heartbeat_ttl FROM clients WHERE id = $1', [req.clientId]);
             finalConfigTtl = result.rows.length > 0 ? result.rows[0].heartbeat_ttl : DEFAULT_TTL;
             // Repopulate Redis cache
-            await redis.set(`config:ttl:${req.clientId}`, finalConfigTtl);
+            await redis.set(getRedisTTLKey(req.clientId), finalConfigTtl);
         }
         console.log(`Status check for ${req.clientId}: Online=${exists === 1}, Remaining TTL=${remaining}s, Configured TTL=${finalConfigTtl}s`);
 
@@ -192,8 +192,11 @@ app.get('/api/auth-status', async (req, res) => {
 function calculateActiveMinutes(schedule) {
     let totalActiveMinutesAcrossAllDevices = 0;
 
+    console.log("Calculating active minutes for the week from schedule:", schedule);
     Object.values(schedule).forEach(dayWindows => {
-        if (!dayWindows || dayWindows.length === 0) return;
+        if (!dayWindows || dayWindows.length === 0) {
+            return;
+        }
 
         // 1. Convert all strings to [start, end] minute pairs
         const intervals = dayWindows
@@ -213,7 +216,11 @@ function calculateActiveMinutes(schedule) {
             .filter(Boolean)
             .sort((a, b) => a.start - b.start); // Sort by start time
 
-        if (intervals.length === 0) return;
+       
+        if (intervals.length === 0) {
+            console.log("No valid intervals for this day, skipping.", intervals);
+            return;
+        }
 
         // 2. Merge overlapping intervals
         const merged = [];
@@ -232,6 +239,7 @@ function calculateActiveMinutes(schedule) {
             }
         }
         merged.push(current);
+        console.log("Merged intervals for the day:", merged);
 
         // 3. Sum the unique duration of merged blocks
         merged.forEach(interval => {
@@ -239,6 +247,7 @@ function calculateActiveMinutes(schedule) {
         });
     });
 
+    console.log("Total active minutes across all devices for the week:", totalActiveMinutesAcrossAllDevices);
     return totalActiveMinutesAcrossAllDevices;
 }
 
@@ -271,6 +280,7 @@ async function calculateDynamicTTL() {
     // 2. Solve: (avgDailyActiveSeconds / TTL) = availableForDevices
     // TTL = avgDailyActiveSeconds / availableForDevices
     let safeTTL = Math.ceil(avgDailyActiveSeconds / availableForDevices);
+    console.log(`Calculated dynamic TTL: ${safeTTL}s based on average daily active seconds (${avgDailyActiveSeconds}s) and available quota (${availableForDevices} requests/day).`);
 
     return Math.max(TTL_PER_CLIENT, safeTTL); // Never go below TTL_PER_CLIENT for stability
 }
@@ -285,7 +295,7 @@ async function syncGlobalQuota() {
     const clients = await pool.query('SELECT id FROM clients');
     const pipeline = redis.pipeline();
     clients.rows.forEach(c => {
-        pipeline.set(`config:ttl:${c.id}`, newTTL);
+        pipeline.set(getRedisTTLKey(c.id), newTTL);
     });
     await pipeline.exec();
     
