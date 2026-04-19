@@ -106,7 +106,6 @@ async function initClientList() {
             clientSelector.value = initialId;
             setClient(initialId);
 
-            clientSelector.onchange = (e) => setClient(e.target.value);
         } else {
             console.error("No client found yet, please refresh in 60sec.");
         }
@@ -195,8 +194,8 @@ async function refreshSingleStatus() {
 }
 
 function startSingleStatusPoll() {
-    setInterval(refreshSingleStatus, 60000);
     refreshSingleStatus();
+    setInterval(refreshSingleStatus, 60000);
 }
 
 // --- DATA CALCULATION & UI ---
@@ -495,6 +494,7 @@ async function init() {
 
     // Load the client list and WAIT for it to set the selectedClientId
     await initClientList(); 
+    startSingleStatusPoll();
 
 
 }
