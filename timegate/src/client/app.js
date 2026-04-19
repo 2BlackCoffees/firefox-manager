@@ -188,7 +188,10 @@ async function refreshSingleStatus() {
         // Update ONLY the LED color
         const statusColor = data.online ? '#44ff00ff' : '#ff003c';
         clientSelector.style.setProperty('--status-color', statusColor);
-    } catch (e) { console.error("Single poll failed", e); }
+        console.log(`Polled status for ${activeId}: Online=${data.online}, Data structure=${data}`);
+    } catch (e) { 
+        console.error("Single poll failed", e); 
+    }
 }
 
 function startSingleStatusPoll() {
