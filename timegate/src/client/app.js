@@ -120,24 +120,24 @@ async function initClientList() {
     loadSchedule();
 }
 
-// 1. Initial Load: Just get names, no status yet
-async function initClientList() {
-    try {
+// // 1. Initial Load: Just get names, no status yet
+// async function initClientList() {
+//     try {
 
-        const res = await fetch(`${API_URL}/clients`, { headers: getHeaders(null, null) });
-        globalClients = await res.json();
+//         const res = await fetch(`${API_URL}/clients`, { headers: getHeaders(null, null) });
+//         globalClients = await res.json();
         
-        const last = localStorage.getItem('last_selected_client');
-        const initialId = (last && globalClients.find(c => c.id === last)) ? last : globalClients[0]?.id;
+//         const last = localStorage.getItem('last_selected_client');
+//         const initialId = (last && globalClients.find(c => c.id === last)) ? last : globalClients[0]?.id;
         
-        renderClientDropdown(initialId); // Plain labels
-        setClient(initialId);
+//         renderClientDropdown(initialId); // Plain labels
+//         setClient(initialId);
         
-        // Start background polling for ONLY the selected client
-        startSingleStatusPoll();
+//         // Start background polling for ONLY the selected client
+//         startSingleStatusPoll();
 
-    } catch (e) { console.error("Init failed", e); }
-}
+//     } catch (e) { console.error("Init failed", e); }
+// }
 
 // Trigger full fleet status ONLY on click/interaction
 clientSelector.addEventListener('mousedown', refreshFullFleetLabels);
