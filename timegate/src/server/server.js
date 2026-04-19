@@ -2,14 +2,75 @@ import express, { json } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import { compare, hash } from 'bcrypt';
+import { Redis } from '@upstash/redis';
 import 'dotenv/config'; 
+
+const HEARTBEAT_TTL = 20;
 
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const SALT_ROUNDS = 10;
+const DEFAULT_TTL = 45; // Default TTL in seconds if not set in DB or Redis
+const TTL_PER_CLIENT = 5; // Assuming one client alone we use this TTL, and it increases by this amount for each additional client (e.g., 5s for 1 client, 10s for 2 clients, etc.)
 
 app.use(cors());
 app.use(json());
+
+const getRedisStatusKey = (clientId) => `heartbeat:${clientId}`;
+const getRedisTTLKey = async (clientId) => `config:ttl:${clientId}`;
+
+// Global Admin Auth (One password for all)
+const checkAuth = async (req, res, next) => {
+    const password = req.headers['authorization'];
+    const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id IS NULL', ['admin_password']);
+    if (result.rows.length === 0) return res.status(403).json({ error: 'Not initialized' });
+    
+    const match = await compare(password || '', result.rows[0].value);
+    if (match) next();
+    else res.status(401).json({ error: 'Unauthorized password' });
+};
+
+
+// client context (For client requests)
+const getClient = (req, res, next) => {
+    const clientId = req.headers['x-client-id'];
+    if (!clientId) return res.status(400).json({ error: 'Missing x-client-id' });
+    req.clientId = clientId;
+    next();
+};
+// Record a heartbeat for a client
+
+// A simple helper to get TTL from Redis (or DB fallback)
+const getClientTTL = async (clientId) => {
+    const redisKey = await getRedisTTLKey(clientId);
+    
+    // 1. Try to get from Redis
+    const cachedTTL = await redis.get(redisKey);
+    if (cachedTTL) return parseInt(cachedTTL);
+
+    // 2. Cache miss: Fetch from Postgres
+    const result = await pool.query('SELECT heartbeat_ttl FROM clients WHERE id = $1', [clientId]);
+    const dbTTL = result.rows.length > 0 ? result.rows[0].heartbeat_ttl : DEFAULT_TTL;
+
+    // 3. Populate Redis for next time
+    await redis.set(redisKey, dbTTL);
+    
+    return dbTTL;
+};
+
+
+// Updated recordHeartbeat using Redis as the config source
+const recordHeartbeat = async (clientId) => {
+    if (!clientId) return;
+    try {
+        const ttl = await getClientTTL(clientId);
+        // Use the TTL from Redis config to set the heartbeat expiry
+        await redis.set(getRedisStatusKey(clientId), "1", { ex: ttl });
+        console.log("Updated heartbeat for", clientId, "with TTL:", ttl);
+    } catch (err) {
+        console.error("Redis Heartbeat Error:", err);
+    }
+};
 
 async function debugInfo() {
     try {
@@ -23,6 +84,79 @@ async function debugInfo() {
         console.error({ err }, 'Failed to run debug info');
     }
 }
+
+app.post('/api/clients/update-ttl', checkAuth, getClient, async (req, res) => {
+    // req.clientId comes from the getClient middleware (header)
+    // newTTL comes from the query string (e.g., /api/clients/update-ttl?ttl=60)
+    const newTTL = parseInt(req.query.ttl);
+
+    if (isNaN(newTTL) || newTTL < 5) {
+        return res.status(400).json({ error: "Invalid TTL value. Minimum 5s required." });
+    }
+
+    try {
+        // 1. Update the Source of Truth (Postgres)
+        await pool.query(
+            'UPDATE clients SET heartbeat_ttl = $1 WHERE id = $2', 
+            [newTTL, req.clientId]
+        );
+
+        // 2. Update the Hot Cache (Redis)
+        // This ensures the next /api/poll immediately uses the new duration
+        await redis.set(await getRedisTTLKey(req.clientId), newTTL);
+
+        res.json({ 
+            success: true, 
+            clientId: req.clientId, 
+            applied_ttl: newTTL 
+        });
+    } catch (err) {
+        console.error("Failed to update TTL:", err);
+        res.status(500).json({ error: "Database/Cache sync failed" });
+    }
+});
+
+app.get('/api/clients/get-status', getClient, async (req, res) => {
+    try {
+        // We use a pipeline to hit Redis once for multiple data points
+        const pipeline = redis.pipeline();
+        
+        // 1. Check if heartbeat exists (is it online?)
+        pipeline.exists(getRedisStatusKey(req.clientId));
+        
+        // 2. Get the remaining seconds before it turns Red
+        pipeline.ttl(getRedisStatusKey(req.clientId));
+        
+        // 3. Get the configured TTL for this device
+        pipeline.get(`config:ttl:${req.clientId}`);
+
+        const [exists, remaining, configTtl] = await pipeline.exec();
+
+        // Fallback to DB if Redis config is empty (Cache miss)
+        let finalConfigTtl = configTtl;
+        if (!finalConfigTtl) {
+            const result = await pool.query('SELECT heartbeat_ttl FROM clients WHERE id = $1', [req.clientId]);
+            finalConfigTtl = result.rows.length > 0 ? result.rows[0].heartbeat_ttl : DEFAULT_TTL;
+            // Repopulate Redis cache
+            await redis.set(`config:ttl:${req.clientId}`, finalConfigTtl);
+        }
+        console.log(`Status check for ${req.clientId}: Online=${exists === 1}, Remaining TTL=${remaining}s, Configured TTL=${finalConfigTtl}s`);
+
+        res.json({
+            online: exists === 1,
+            ttl: parseInt(finalConfigTtl)
+        });
+
+    } catch (err) {
+        console.error("Status fetch failure:", err);
+        res.status(500).json({ error: "Failed to retrieve device status" });
+    }
+});
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 export async function isAuthorized(req) {
   // 1. Get the key from the incoming request header
@@ -44,16 +178,7 @@ debugInfo();
 
 // --- MIDDLEWARE ---
 
-// Global Admin Auth (One password for all)
-const checkAuth = async (req, res, next) => {
-    const password = req.headers['authorization'];
-    const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id IS NULL', ['admin_password']);
-    if (result.rows.length === 0) return res.status(403).json({ error: 'Not initialized' });
-    
-    const match = await compare(password || '', result.rows[0].value);
-    if (match) next();
-    else res.status(401).json({ error: 'Unauthorized password' });
-};
+
 
 app.get('/api/auth-status', async (req, res) => {
     const result = await pool.query('SELECT 1 FROM settings WHERE key = $1', ['admin_password']);
@@ -61,15 +186,111 @@ app.get('/api/auth-status', async (req, res) => {
 });
 
 
-// client context (For client requests)
-const getClient = (req, res, next) => {
-    const clientId = req.headers['x-client-id'];
-    if (!clientId) return res.status(400).json({ error: 'Missing x-client-id' });
-    req.clientId = clientId;
-    next();
-};
 
 // --- REGISTRATION LOGIC ---
+
+function calculateActiveMinutes(schedule) {
+    let totalActiveMinutesAcrossAllDevices = 0;
+
+    Object.values(schedule).forEach(dayWindows => {
+        if (!dayWindows || dayWindows.length === 0) return;
+
+        // 1. Convert all strings to [start, end] minute pairs
+        const intervals = dayWindows
+            .filter(w => w && typeof w === 'string') // Ignore nulls/empty commas
+            .map(windowStr => {
+                const parts = windowStr.split(/[- ,]/);
+                if (parts.length !== 2) return null;
+                
+                const start = parts[0].split(':').map(Number);
+                const end = parts[1].split(':').map(Number);
+                
+                return {
+                    start: (start[0] * 60) + (start[1] || 0),
+                    end: (end[0] * 60) + (end[1] || 0)
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.start - b.start); // Sort by start time
+
+        if (intervals.length === 0) return;
+
+        // 2. Merge overlapping intervals
+        const merged = [];
+        let current = intervals[0];
+
+        for (let i = 1; i < intervals.length; i++) {
+            const next = intervals[i];
+            
+            if (next.start <= current.end) {
+                // There is an overlap, extend the current end time
+                current.end = Math.max(current.end, next.end);
+            } else {
+                // No overlap, push the finished block and move to next
+                merged.push(current);
+                current = next;
+            }
+        }
+        merged.push(current);
+
+        // 3. Sum the unique duration of merged blocks
+        merged.forEach(interval => {
+            totalActiveMinutesAcrossAllDevices += (interval.end - interval.start);
+        });
+    });
+
+    return totalActiveMinutesAcrossAllDevices;
+}
+
+async function calculateDynamicTTL() {
+    const QUOTA = 10000;
+    const UI_OVERHEAD = 200; // 1 poll/min for ~3 hours of dashboard use
+    const availableForDevices = QUOTA - UI_OVERHEAD;
+
+    // 1. Fetch all power_on_schedules
+    const result = await pool.query("SELECT value FROM settings WHERE key = 'power_on_schedule'");
+    
+    const combinedSchedules = result.rows.reduce((acc, row) => {
+        const schedule = JSON.parse(row.value);
+        
+        Object.entries(schedule).forEach(([day, windows]) => {
+            if (!acc[day]) acc[day] = [];
+            // Use concat to keep ALL windows from ALL clients for that day
+            acc[day] = acc[day].concat(windows);
+        });
+        
+        return acc;
+    }, {});
+    console.log('Combined Schedules from all clients:', combinedSchedules);
+    let totalActiveMinutesAcrossAllDevices = calculateActiveMinutes(combinedSchedules);
+    console.log('Total Active Minutes Across All Devices Per Week:', totalActiveMinutesAcrossAllDevices);
+    
+    // Convert total active minutes per week to average daily requests
+    const avgDailyActiveSeconds = (totalActiveMinutesAcrossAllDevices / 7) * 60;
+
+    // 2. Solve: (avgDailyActiveSeconds / TTL) = availableForDevices
+    // TTL = avgDailyActiveSeconds / availableForDevices
+    let safeTTL = Math.ceil(avgDailyActiveSeconds / availableForDevices);
+
+    return Math.max(TTL_PER_CLIENT, safeTTL); // Never go below TTL_PER_CLIENT for stability
+}
+
+async function syncGlobalQuota() {
+    const newTTL = await calculateDynamicTTL();
+
+    // 1. Update Database so devices know their new heartbeat rate
+    await pool.query('UPDATE clients SET heartbeat_ttl = $1', [newTTL]);
+
+    // 2. Update Redis Config Cache for all clients
+    const clients = await pool.query('SELECT id FROM clients');
+    const pipeline = redis.pipeline();
+    clients.rows.forEach(c => {
+        pipeline.set(`config:ttl:${c.id}`, newTTL);
+    });
+    await pipeline.exec();
+    
+    console.log(`[QUOTA] Global TTL adjusted to ${newTTL}s based on schedules.`);
+}
 
 app.post('/api/register', async (req, res) => {
     if (!isAuthorized(req)) {
@@ -109,14 +330,24 @@ app.post('/api/register', async (req, res) => {
         }
         console.log('Suggested name changed to', finalId, 'after checking for conflicts. Proceeding with registration.');
 
-        // 3. Register the new client
-        await pool.query('INSERT INTO clients (id, unique_key) VALUES ($1, $2)', [finalId, unique_key]);
+        const client = await pool.connect();
+        await client.query('BEGIN');
+
+            // 1. Register the new client
+            await client.query(
+                'INSERT INTO clients (id, unique_key, heartbeat_ttl) VALUES ($1, $2, $3)',
+                [finalId, unique_key, calculateDynamicTTL()]
+            );
+
+            // 2. Initialize default settings for this new client if needed
+            await client.query(
+                'INSERT INTO global_settings (client_id) VALUES ($1) ON CONFLICT DO NOTHING', 
+                [finalId]
+            );
         
-        // 4. Initialize default settings for this new client if needed
-        await pool.query(
-            'INSERT INTO global_settings (client_id) VALUES ($1) ON CONFLICT DO NOTHING', 
-            [finalId]
-        );
+        await client.query('COMMIT');
+
+        syncGlobalQuota(); // Recalculate global TTL based on the new device addition
 
         console.log('Client registered successfully with ID:', finalId);
 
@@ -248,13 +479,32 @@ app.post('/api/settings/time', getClient, checkAuth, async (req, res) => {
     }
 });
 
+app.get('/api/clients/status_client', getClient, async (req, res) => {
+    try {
+        // req.clientId is populated by the getClient middleware
+        const isOnline = await redis.exists(getRedisStatusKey(req.clientId));
+        
+        // Return simple boolean status
+        res.json({ 
+            id: req.clientId, 
+            online: isOnline === 1 
+        });
+    } catch (err) {
+        console.error("Redis Status Error:", err);
+        res.status(500).json({ error: "Failed to fetch status" });
+    }
+});
+
 app.get('/api/poll', getClient, async (req, res) => {
     if (!isAuthorized(req)) {
         return res.status(401).json({ error: 'Unauthorized API Key' });
     }
+    recordHeartbeat(req.clientId);
     const result = await pool.query('DELETE FROM allowances WHERE id = (SELECT id FROM allowances WHERE client_id = $1 ORDER BY created_at ASC LIMIT 1) RETURNING *',
                                     [req.clientId]
     );
+
+    const currentTTL = await getClientTTL(req.clientId);
     if (result.rows.length > 0) {
         const status = result.rows[0].status;
         var new_status = 'none'
@@ -262,9 +512,9 @@ app.get('/api/poll', getClient, async (req, res) => {
             new_status = status + '_fetched_by_child';
         }
         await pool.query('INSERT INTO history (client_id, allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4, $5)', [req.clientId, result.rows[0].id, result.rows[0].sites, result.rows[0].duration_minutes, new_status.toUpperCase()]);
-        return res.json({ status: status, client: req.clientId, sites: result.rows[0].sites, duration: result.rows[0].duration_minutes});
+        return res.json({ status: status, client: req.clientId, sites: result.rows[0].sites, duration: result.rows[0].duration_minutes, next_poll_interval: currentTTL });
     }
-    res.json({ status: 'none' });
+    res.json({ status: 'none', next_poll_interval: currentTTL });
 
 });
 
@@ -275,7 +525,38 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+app.get('/api/clients/status-all', async (req, res) => {
+    try {
+        // 1. Get all IDs from Neon (Fast, and doesn't happen often)
+        const result = await pool.query('SELECT id, heartbeat_ttl FROM clients');
+        const clients = result.rows;
 
+        if (clients.length === 0) return res.json({});
+
+        // 2. Open a Pipeline to Redis
+        // This is 1 request to the Redis server, no matter how many clients you have
+        const pipeline = redis.pipeline();
+        clients.forEach(c => {
+            pipeline.exists(getRedisStatusKey(c.id));
+        });
+
+        const redisResults = await pipeline.exec();
+        
+        // 3. Map results back to client IDs
+        const fleetStatus = {};
+        clients.forEach((c, index) => {
+            fleetStatus[c.id] = {
+                online: redisResults[index] === 1,
+                configured_ttl: c.heartbeat_ttl
+            };
+        });
+
+        res.json(fleetStatus);
+    } catch (err) {
+        console.error("Fleet status error:", err);
+        res.status(500).json({ error: "Failed to fetch fleet status" });
+    }
+});
 
 // Get all saved site targets
 app.get('/api/targets', async (req, res) => {
@@ -323,6 +604,8 @@ app.get('/api/settings/poweronschedule', getClient, async (req, res) => {
             // Return default empty structure if not set
             res.json({ schedule: {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []} });
         }
+
+        syncGlobalQuota(); // Recalculate global TTL based on the schedules (in case they changed externally)
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

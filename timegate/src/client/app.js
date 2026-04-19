@@ -26,6 +26,7 @@ const timeAccessesModal = document.getElementById('timeAccessesModal');
 const updateFirefoxAccessTime = document.getElementById('updateFirefoxAccessTime');
 const timeAccessesModalCancel = document.getElementById('timeAccessesModalCancel');
 
+
 // --- HELPER: HEADERS ---
 function getHeaders(authKey = null, client = null) {
     const headers = { 'Content-Type': 'application/json' };
@@ -54,26 +55,60 @@ function getClient() {
     return selectedClientId
 }
 
+async function apiGetRequest(url, headers = {}) {
+    // 1. Generate and Log the CURL command
+    const curlArgs = Object.entries(headers)
+        .map(([key, value]) => `-H "${key}: ${value}"`)
+        .join(' ');
+    
+    const curlCommand = `curl -X GET "${url}" ${curlArgs}`;
+    
+    console.log("%c DEBUG CURL ", "background: #222; color: #bada55; font-weight: bold;", curlCommand);
+
+    try {
+        // 2. Execute Fetch
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
+
+        // 3. Error Handling
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+        }
+
+        return await response;
+    } catch (error) {
+        console.error(`[API Error] ${url}:`, error.message);
+        throw error;
+    }
+}
+
+let globalClients = []; 
 async function initClientList() {
     try {
         console.log(`Address server: ${API_URL}/clients`)
         //console.log(`'Authorization': ${adminPassword}`)
         const res = await fetch(`${API_URL}/clients`, { headers: getHeaders(null, null) });
-        const clients = await res.json();
-        console.log(`Client list:`, clients);
+        globalClients = await res.json();
+        console.log(`Client list:`, globalClients);
         
         if (clientSelector) {
-            clientSelector.innerHTML = clients.map(c => 
-                `<option value="${c.id}">${c.id}</option>`
-            ).join('');
+            // clientSelector.innerHTML = globalClients.map(c => 
+            //     `<option value="${c.id}">${c.id}</option>`
+            // ).join('');
 
             const last = localStorage.getItem('last_selected_client');
-            const initialId = (last && clients.find(c => c.id === last)) ? last : clients[0]?.id;
-            
+            //const initialId = (last && clients.find(c => c.id === last)) ? last : clients[0]?.id;
+            const initialId = (last && globalClients.find(c => c.id === last)) ? last : globalClients[0]?.id;
+
             clientSelector.value = initialId;
             setClient(initialId);
 
             clientSelector.onchange = (e) => setClient(e.target.value);
+        } else {
+            console.error("No client found yet, please refresh in 60sec.");
         }
     } catch (e) {
         console.error("Failed to load clients", e);
@@ -83,6 +118,82 @@ async function initClientList() {
     loadHistory();
     loadGlobalSettings();
     loadSchedule();
+}
+
+// 1. Initial Load: Just get names, no status yet
+async function initClientList() {
+    try {
+
+        const res = await fetch(`${API_URL}/clients`, { headers: getHeaders(null, null) });
+        globalClients = await res.json();
+        
+        const last = localStorage.getItem('last_selected_client');
+        const initialId = (last && globalClients.find(c => c.id === last)) ? last : globalClients[0]?.id;
+        
+        renderClientDropdown(initialId); // Plain labels
+        setClient(initialId);
+        
+        // Start background polling for ONLY the selected client
+        startSingleStatusPoll();
+
+    } catch (e) { console.error("Init failed", e); }
+}
+
+// Trigger full fleet status ONLY on click/interaction
+clientSelector.addEventListener('mousedown', refreshFullFleetLabels);
+
+// Change handler remains the same
+clientSelector.onchange = (e) => {
+    setClient(e.target.value);
+    refreshSingleStatus(); // Update LED immediately for new selection
+};
+
+// Triggered ONLY when the user clicks the dropdown
+async function refreshFullFleetLabels() {
+    try {
+        const res = await fetch(`${API_URL}/clients/status-all`, { headers: getHeaders(null, null) });
+        const fleetStatus = await res.json();
+        renderClientDropdown(clientSelector.value, fleetStatus);
+    } catch (e) { console.error("Fleet sync failed", e); }
+}
+
+function renderClientDropdown(selectedId, fleetStatus = {}) {
+    if (!clientSelector) return;
+
+    clientSelector.innerHTML = globalClients.map(c => {
+        const statusData = fleetStatus[c.id];
+        let labelSuffix = "";
+        
+        if (statusData) {
+            labelSuffix = statusData.online ? " (connected)" : " (disconnected)";
+        }
+
+        const isSelected = c.id === selectedId ? 'selected' : '';
+        return `<option value="${c.id}" ${isSelected}>${c.id}${labelSuffix}</option>`;
+    }).join('');
+}
+
+// Background Polling (Single Client)
+async function refreshSingleStatus() {
+    const activeId = getClient();
+    if (!activeId) return;
+
+    try {
+        const res = await apiGetRequest(`${API_URL}/clients/get-status`, getHeaders(null, activeId));
+        // const res = await fetch(`${API_URL}/clients/get-status`, { 
+        //     headers: getHeaders(activeId, null) 
+        // });
+        const data = await res.json();
+        
+        // Update ONLY the LED color
+        const statusColor = data.online ? '#44ff00ff' : '#ff003c';
+        clientSelector.style.setProperty('--status-color', statusColor);
+    } catch (e) { console.error("Single poll failed", e); }
+}
+
+function startSingleStatusPoll() {
+    setInterval(refreshSingleStatus, 60000);
+    refreshSingleStatus();
 }
 
 // --- DATA CALCULATION & UI ---
@@ -360,7 +471,8 @@ saveScheduledButton.onclick = async () => {
 
 async function init() {
     // 1. Check if the system even has a password yet
-    const authRes = await fetch(`${API_URL}/auth-status`);
+    const authRes = await apiGetRequest(`${API_URL}/auth-status`);
+
     const { initialized } = await authRes.json();
     
     if (!initialized) {
@@ -383,47 +495,6 @@ async function init() {
 
 
 }
-
-// --- Initialization ---
-// async function init() {
-
-//     loadTargets(false);
-//     loadHistory();
-//     loadGlobalSettings();
-//     try {
-//         const res = await fetch(`${API_URL}/auth-status`);
-//         const { initialized } = await res.json();
-//         if (!initialized) {
-//             await showAlert('warning', 'First start', "Please setup a password (Do not reuse any of your passwords).");
-//             const p = await requestPassword();
-//             await fetch(`${API_URL}/setup-password`, {
-//                 method: 'POST',
-//                 headers: getHeaders(null, null),
-//                 body: JSON.stringify({ password: p })
-//             });
-//         }
-//         loadHistory();
-//         modalInput.addEventListener('keydown', (event) => {
-//             if (event.key === 'Enter') {
-//                 // Prevent the default behavior (like form submission) 
-//                 event.preventDefault(); 
-//                 // Trigger the click event on the confirm button
-//                 modalConfirm.click();
-//             }
-//         });
-//         modalCancel.addEventListener('click', closeModal);
-
-//         window.addEventListener('keydown', (e) => {
-//             if (e.key === 'Escape' && authModal.style.display !== 'none') {
-//                 closeModal();
-//             }
-//         });
-//         console.log("Initialization complete, loading schedule...");
-//         loadSchedule();
-//     } catch (e) {
-//         console.error("Init failed: ", e)
-//     }
-// }
 
 function formatFullCreationString(selectedSites, isoTimestamp, durationMins) {
     const date = new Date(isoTimestamp);
@@ -613,3 +684,25 @@ function animate() {
 }
 
 animate();
+
+// This is a function referenc that could be used if TTL had to be defined manually from the client side, but currently TTL is only managed server-side based on the schedule and allowances, so this is not needed. Kept here for potential future use.
+// async function updateClientTTL(targetId, seconds) {
+//     try {
+//         const adminPassword = await requestPassword("Enter your password");
+
+//         const response = await fetch(`${API_URL}/api/clients/update-ttl?ttl=${seconds}`, {
+//             method: 'POST',
+//             headers: {
+//                 'Authorization': adminPassword, // From your auth state
+//                 'x-client-id': targetId         // Standard header
+//             }
+//         });
+
+//         const data = await response.json();
+//         if (data.success) {
+//             console.log(`System TTL updated to ${seconds}s for ${targetId}`);
+//         }
+//     } catch (err) {
+//         console.error("Communication failure during TTL update", err);
+//     }
+// }

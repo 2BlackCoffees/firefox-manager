@@ -9,7 +9,7 @@ if [ -f .env ]; then
 fi
 
 # Set a default poll interval if not defined in .env (in seconds)
-POLL_INTERVAL=10
+POLL_INTERVAL=30
 CONFIG_DIR="/var/lib/ff-limiter"
 CONFIG_FILE="$CONFIG_DIR/state.cfg"
 mkdir -p "$CONFIG_DIR"
@@ -79,12 +79,6 @@ register_device() {
     fi
 }
 
-sleep_time() {
-    POLL_INTERVAL=$1
-    log "Sleeping for $POLL_INTERVAL seconds..."
-    sleep "$POLL_INTERVAL"
-}
-
 wait_for_request() {
     log "Waiting for Python service to request sync with $REQUEST_FILE_SYNC..."
     # Loop until the file exists
@@ -102,6 +96,7 @@ sync_power_on_schedule() {
         # 1. to_entries turns {"1": [...]} into [{"key": "1", "value": [...]}]
         # 2. select filters out days with empty arrays
         # 3. join(",") creates "08:00-10:00,17:00-18:00" (no extra spaces)
+        log "Raw schedule response: $RESPONSE"
         FORMATTED_CONFIG=$(echo "$RESPONSE" | jq -r '
             .schedule | to_entries | 
             map(select(.value | length > 0)) | 
@@ -182,15 +177,13 @@ while true; do
     # --- Case 1: Before Minimum Time ---
     if [[ "$NOW" -lt "$MIN_SEC" ]]; then
         log "Too early ($CURRENT_TIME). Waiting until $MIN_START_TIME..."
-        sleep_time 60
-        continue
+        POLL_INTERVAL=60
 
     # --- Case 2: After Maximum Time ---
     elif [[ "$NOW" -gt "$MAX_SEC" ]]; then
         log "Past limit ($CURRENT_TIME). Stopping services..."
         systemctl stop "ff-limiter@*"
-        sleep_time 60
-        continue
+        POLL_INTERVAL=60
     else 
 
         # --- Case 3: Within Allowed Window ---
@@ -200,6 +193,17 @@ while true; do
         if [ $? -ne 0 ]; then
             log "Network error. Received: $RESPONSE Retrying in ${POLL_INTERVAL}s..."
         else
+            NEW_INTERVAL=$(echo "$RESPONSE" | jq -r '.next_poll_interval // 45')    
+            
+            # Ensure NEW_INTERVAL is a number before assignment
+            if [[ "$NEW_INTERVAL" =~ ^[0-9]+$ ]]; then
+                POLL_INTERVAL=$NEW_INTERVAL
+                log "Next poll interval set to $POLL_INTERVAL seconds based on server response."
+            else
+                log "Invalid poll interval received: $NEW_INTERVAL. Keeping previous interval of $POLL_INTERVAL seconds."
+            fi
+
+
             STATUS=$(echo "$RESPONSE" | jq -r '.status')
 
             # Only act if the status has changed
