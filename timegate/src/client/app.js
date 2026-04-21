@@ -144,6 +144,9 @@ clientSelector.addEventListener('mousedown', refreshFullFleetLabels);
 // Change handler remains the same
 clientSelector.onchange = (e) => {
     setClient(e.target.value);
+    if (clientSelector.value != e.target.value) {
+        clientSelector.value = e.target.value; // Ensure dropdown reflects the actual selected client
+    }
     refreshSingleStatus(); // Update LED immediately for new selection
 };
 
@@ -161,14 +164,18 @@ function renderClientDropdown(selectedId, fleetStatus = {}) {
 
     clientSelector.innerHTML = globalClients.map(c => {
         const statusData = fleetStatus[c.id];
-        let labelSuffix = "";
         
+        // Define the indicator based on status
+        // 🟢 for connected, 🔴 for disconnected, ⚪ for unknown/offline
+        let indicator = "⚪"; 
         if (statusData) {
-            labelSuffix = statusData.online ? " (connected)" : " (disconnected)";
+            indicator = statusData.online ? "🟢" : "🔴";
         }
 
         const isSelected = c.id === selectedId ? 'selected' : '';
-        return `<option value="${c.id}" ${isSelected}>${c.id}${labelSuffix}</option>`;
+        return `<option value="${c.id}" ${isSelected}>
+            ${indicator} ${c.id}
+        </option>`;
     }).join('');
 }
 
