@@ -5,6 +5,7 @@ import { compare, hash } from 'bcrypt';
 import { Redis } from '@upstash/redis';
 import 'dotenv/config'; 
 
+// TODO: Associate photos wirh GDPR message, allow photo ondemand
 const HEARTBEAT_TTL = 20;
 
 const app = express();
@@ -39,7 +40,6 @@ const getClient = (req, res, next) => {
     next();
 };
 // Record a heartbeat for a client
-
 // A simple helper to get TTL from Redis (or DB fallback)
 const getClientTTL = async (clientId) => {
     const redisKey = await getRedisTTLKey(clientId);
@@ -140,7 +140,7 @@ app.get('/api/clients/get-status', getClient, async (req, res) => {
             // Repopulate Redis cache
             await redis.set(getRedisTTLKey(req.clientId), finalConfigTtl);
         }
-        console.log(`Status check for ${req.clientId}: Online=${exists === 1}, Remaining TTL=${remaining}s, Configured TTL=${finalConfigTtl}s`);
+        // console.log(`Status check for ${req.clientId}: Online=${exists === 1}, Remaining TTL=${remaining}s, Configured TTL=${finalConfigTtl}s`);
 
         res.json({
             online: exists === 1,
@@ -177,8 +177,6 @@ export async function isAuthorized(req) {
 debugInfo();
 
 // --- MIDDLEWARE ---
-
-
 
 app.get('/api/auth-status', async (req, res) => {
     const result = await pool.query('SELECT 1 FROM settings WHERE key = $1', ['admin_password']);
@@ -402,47 +400,106 @@ app.get('/api/clients', async (req, res) => {
 // --- CLIENT ENDPOINTS (client specific) ---
 // --- MANAGEMENT ENDPOINTS (Admin must specify WHICH client they are controlling) ---
 
+const redisAllowanceKey = (clientId) => `allowance:${clientId}`;
+
+const cacheAllowance = async (clientId, data) => {
+    // Store as JSON string, set a reasonable expiry (e.g., 24h) 
+    // to prevent orphaned data
+    await redis.set(redisAllowanceKey(clientId), JSON.stringify(data), { ex: 86400 });
+};
+
+const invalidateAllowance = async (clientId) => {
+    await redis.del(redisAllowanceKey(clientId));
+};
+
+const getCachedAllowance = async (clientId) => {
+    const data = await redis.get(redisAllowanceKey(clientId));
+    return data ? JSON.parse(data) : null;
+};
+
+app.get('/api/poll', getClient, async (req, res) => {
+    if (!isAuthorized(req)) {
+        return res.status(401).json({ error: 'Unauthorized API Key' });
+    }
+
+    recordHeartbeat(req.clientId);
+    const currentTTL = await getClientTTL(req.clientId);
+
+    // 1. Check Redis ONLY
+    const cachedAllowance = await getCachedAllowance(req.clientId);
+
+    // 2. If nothing is in Redis, EXIT IMMEDIATELY. 
+    // No DB query for 'allowances' table.
+    if (!cachedAllowance) {
+        return res.json({ status: 'none', next_poll_interval: currentTTL });
+    }
+
+    // 3. If we are here, we HAVE an allowance. 
+    // Now we clean up the DB and Redis.
+    const [dbResult] = await Promise.all([
+        pool.query('DELETE FROM allowances WHERE client_id = $1 RETURNING *', [req.clientId]),
+        redis.del(redisAllowanceKey(req.clientId))
+    ]);
+
+    const allowance = dbResult.rows[0] || cachedAllowance; // Fallback to cache if DB delete was weird
+    const new_status = allowance.status !== 'none' ? `${allowance.status}_fetched_by_child` : 'NONE';
+
+    // Log to history (Keep this in DB for auditing)
+    await pool.query(
+        'INSERT INTO history (client_id, allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4, $5)', 
+        [req.clientId, allowance.id, allowance.sites, allowance.duration_minutes, new_status.toUpperCase()]
+    );
+
+    res.json({ 
+        status: allowance.status, 
+        client: req.clientId, 
+        sites: allowance.sites, 
+        duration: allowance.duration_minutes, 
+        next_poll_interval: currentTTL 
+    });
+});
+
+
 app.post('/api/allow', getClient, checkAuth, async (req, res) => {
     const { sites, duration } = req.body;
-    const targetClientId = req.clientId
-    const client = await pool.connect(); // Get a client for the transaction
+    const targetClientId = req.clientId;
+    const dbClient = await pool.connect();
 
     try {
-        await client.query('BEGIN');
+        await dbClient.query('BEGIN');
+        await dbClient.query('DELETE FROM allowances WHERE client_id = $1', [targetClientId]);
 
-        // 1. Delete all existing rows in allowances 
-        // (Ensuring only one row can ever exist)
-        await client.query('DELETE FROM allowances where client_id = $1', [targetClientId]);
-
-                // 2. Insert the new row WITH the client_id
-        const insertResult = await client.query(
+        const insertResult = await dbClient.query(
             'INSERT INTO allowances (client_id, sites, duration_minutes, status) VALUES ($1, $2, $3, $4) RETURNING *',
             [targetClientId, sites, duration, 'active']
         );
-
         const newRow = insertResult.rows[0];
 
-        // 3. Log in history WITH the client_id
-        await client.query(
+        await dbClient.query(
             'INSERT INTO history (client_id, allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4, $5)',
             [targetClientId, newRow.id, sites, duration, 'CREATED']
         );
 
-        await client.query('COMMIT');
-        res.json(newRow);
+        await dbClient.query('COMMIT');
 
+        // Update Cache after successful DB commit
+        await cacheAllowance(targetClientId, newRow);
+        
+        res.json(newRow);
     } catch (error) {
-        await client.query('ROLLBACK');
+        await dbClient.query('ROLLBACK');
         console.error('Error in /api/admin/allow:', error);
         res.status(500).json({ error: error.message });
     } finally {
-        client.release();
+        dbClient.release();
     }
 });
 
 app.post('/api/stop', getClient, checkAuth, async (req, res) => {
     await pool.query('INSERT INTO allowances (client_id, sites, duration_minutes, status) VALUES ($1, $2, $3, $4)', [req.clientId, [], 0, 'stop']);
     await pool.query('INSERT INTO history (client_id, action) VALUES ($1)', [req.clientId, 'STOPPED_MANUALLY']);
+    // Update Cache
+    await cacheAllowance(req.clientId, stopData);
     res.json({ success: true });
 });
 
@@ -505,28 +562,6 @@ app.get('/api/clients/status_client', getClient, async (req, res) => {
     }
 });
 
-app.get('/api/poll', getClient, async (req, res) => {
-    if (!isAuthorized(req)) {
-        return res.status(401).json({ error: 'Unauthorized API Key' });
-    }
-    recordHeartbeat(req.clientId);
-    const result = await pool.query('DELETE FROM allowances WHERE id = (SELECT id FROM allowances WHERE client_id = $1 ORDER BY created_at ASC LIMIT 1) RETURNING *',
-                                    [req.clientId]
-    );
-
-    const currentTTL = await getClientTTL(req.clientId);
-    if (result.rows.length > 0) {
-        const status = result.rows[0].status;
-        var new_status = 'none'
-        if (status != 'none') {
-            new_status = status + '_fetched_by_child';
-        }
-        await pool.query('INSERT INTO history (client_id, allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4, $5)', [req.clientId, result.rows[0].id, result.rows[0].sites, result.rows[0].duration_minutes, new_status.toUpperCase()]);
-        return res.json({ status: status, client: req.clientId, sites: result.rows[0].sites, duration: result.rows[0].duration_minutes, next_poll_interval: currentTTL });
-    }
-    res.json({ status: 'none', next_poll_interval: currentTTL });
-
-});
 
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.SERVER_PORT || 3000;

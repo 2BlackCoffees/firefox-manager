@@ -35,17 +35,20 @@ function getHeaders(authKey = null, client = null) {
     return headers;
 }
 
-// --- CLIENT CONTEXT MANAGEMENT ---
-async function setClient(id) {
-    selectedClientId = id;
-    localStorage.setItem('last_selected_client', id);
-    
-    // Refresh client-specific data
+async function loadAll() {
     await Promise.all([
         loadGlobalSettings(),
         loadHistory(),
         loadSchedule()
     ]);
+}
+// --- CLIENT CONTEXT MANAGEMENT ---
+async function setClient(id) {
+    selectedClientId = id;
+    localStorage.setItem('last_selected_client', id);
+    console.log(`Selected client set to: ${id}`);
+    
+    loadAll();
 }
 
 function getClient() {
@@ -102,6 +105,7 @@ async function initClientList() {
             const last = localStorage.getItem('last_selected_client');
             //const initialId = (last && clients.find(c => c.id === last)) ? last : clients[0]?.id;
             const initialId = (last && globalClients.find(c => c.id === last)) ? last : globalClients[0]?.id;
+            refreshFullFleetLabels(); // Load with status indicators
 
             clientSelector.value = initialId;
             setClient(initialId);
@@ -114,29 +118,8 @@ async function initClientList() {
     }
     // Now that selectedClientId is guaranteed, load the rest
     loadTargets(false);
-    loadHistory();
-    loadGlobalSettings();
-    loadSchedule();
+    loadAll();
 }
-
-// // 1. Initial Load: Just get names, no status yet
-// async function initClientList() {
-//     try {
-
-//         const res = await fetch(`${API_URL}/clients`, { headers: getHeaders(null, null) });
-//         globalClients = await res.json();
-        
-//         const last = localStorage.getItem('last_selected_client');
-//         const initialId = (last && globalClients.find(c => c.id === last)) ? last : globalClients[0]?.id;
-        
-//         renderClientDropdown(initialId); // Plain labels
-//         setClient(initialId);
-        
-//         // Start background polling for ONLY the selected client
-//         startSingleStatusPoll();
-
-//     } catch (e) { console.error("Init failed", e); }
-// }
 
 // Trigger full fleet status ONLY on click/interaction
 clientSelector.addEventListener('mousedown', refreshFullFleetLabels);
@@ -487,11 +470,23 @@ async function init() {
     if (!initialized) {
         await showAlert('warning', 'First start', "Please setup a password.");
         const n1 = await requestPassword("Enter your passowrd");
-        if (!n1) return;    
+        if (!n1) {
+            await showAlert('error', 'Security issue', "Invalid password used.");
+            setTimeout(init, 1000);
+            return;
+        };    
         const n2 = await requestPassword("Confirm your password");
-        if (!n2) return;
-        if (n1 !== n2) 
-            return await showAlert('error', 'Password not set',"The 2 passwords do not match.");
+        if (!n2) {
+            await showAlert('error', 'Security issue', "Invalid password used.");
+            setTimeout(init, 1000);
+            return;
+        };            
+        if (n1 !== n2) {
+            await showAlert('error', 'Password not set',"The 2 passwords do not match.");
+            setTimeout(init, 1000);
+            return;
+        }
+
         await fetch(`${API_URL}/setup-password`, {
             method: 'POST',
             body: JSON.stringify({ password: n1 }),
@@ -502,6 +497,7 @@ async function init() {
     // Load the client list and WAIT for it to set the selectedClientId
     await initClientList(); 
     startSingleStatusPoll();
+    return;
 
 
 }
@@ -615,7 +611,6 @@ document.getElementById('addNewTargetBtn').onclick = async () => {
 
 // --- STARFIELD ANIMATION ---
 init();
-
 
 const canvas = document.getElementById('starCanvas');
 const ctx = canvas.getContext('2d');
