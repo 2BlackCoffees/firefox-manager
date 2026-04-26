@@ -571,8 +571,8 @@ class TimeRangeChecker:
         
         # Determine result
         if not self.time_config and not self.cron_rules:
-            status += f"\nNo configuration found for today (day {current_day})"
-            return 2, status
+            status += f"\nNo configuration found for today (day {current_day}) considering outside of time range by default"
+            return 1, status
         
         if in_range:
             status += f"\n✓ Within active time (traditional or cron matched)"
