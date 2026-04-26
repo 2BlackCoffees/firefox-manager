@@ -90,29 +90,42 @@ wait_for_request() {
 
 sync_power_on_schedule() {
     log "Syncing Power-On Schedule..."
-    # Fetch from the new endpoint
     RESPONSE=$(call_api "/api/settings/poweronschedule")    
-    if [ $? -eq 0 ] && [ "$RESPONSE" != "" ]; then
-        # 1. to_entries turns {"1": [...]} into [{"key": "1", "value": [...]}]
-        # 2. select filters out days with empty arrays
-        # 3. join(",") creates "08:00-10:00,17:00-18:00" (no extra spaces)
-        log "Raw schedule response: $RESPONSE"
-        FORMATTED_CONFIG=$(echo "$RESPONSE" | jq -r '
-            .schedule | to_entries | 
-            map(select(.value | length > 0)) | 
-            map("\(.key): \(.value | join(","))") | 
-            .[]
-        ')
+    
+    if [ $? -eq 0 ] && [ -n "$RESPONSE" ]; then
+        # 1. Determine the new Photo Status (default to false)
+        NEW_PHOTO_STATUS=$(echo "$RESPONSE" | jq -r '.send_photo // false')
 
-        if [[ -n "$FORMATTED_CONFIG" ]]; then
-            # Ensure the directory exists
-            mkdir -p $TIME_CHECKER_PATH
-            # Write to the file the Python script reads
-            echo "$FORMATTED_CONFIG" > $POWER_ON_SCHEDULE.tmp
-            mv $POWER_ON_SCHEDULE.tmp $POWER_ON_SCHEDULE
-            log "Power-On Schedule updated in $POWER_ON_SCHEDULE:\n$FORMATTED_CONFIG"
+        # 2. Check if the "days" object has any actual content
+        # This counts how many keys have non-empty arrays
+        DAYS_COUNT=$(echo "$RESPONSE" | jq -r '.days | to_entries | map(select(.value | length > 0)) | length')
+
+        if [ "$DAYS_COUNT" -gt 0 ]; then
+            # NEW DATA FOUND: Overwrite the whole file with new photo status and new schedule
+            {
+                echo "send_photo: $NEW_PHOTO_STATUS"
+                echo "$RESPONSE" | jq -r '
+                    .days | to_entries | 
+                    map(select(.value | length > 0)) | 
+                    map("\(.key): \(.value | join(","))") | 
+                    .[]
+                '
+            } > "$POWER_ON_SCHEDULE.tmp"
+            mv "$POWER_ON_SCHEDULE.tmp" "$POWER_ON_SCHEDULE"
+            log "Schedule and Photo Status updated."
         else
-            log "Schedule is empty. No changes made to config-time-shutdown.conf"
+            # EMPTY DAYS FOUND: Update ONLY the send_photo line, keep existing schedule
+            if [ -f "$POWER_ON_SCHEDULE" ]; then
+                # Replace the line starting with send_photo: or prepend it if not found
+                # Using sed to swap the first line safely
+                sed -i "s/^send_photo:.*/send_photo: $NEW_PHOTO_STATUS/" "$POWER_ON_SCHEDULE"
+                log "Days were empty. Only updated send_photo to $NEW_PHOTO_STATUS in existing config."
+            else
+                # Fallback if file doesn't exist yet
+                echo "send_photo: $NEW_PHOTO_STATUS" > "$POWER_ON_SCHEDULE.tmp"
+                mv "$POWER_ON_SCHEDULE.tmp" "$POWER_ON_SCHEDULE"
+                log "Created new config with send_photo: $NEW_PHOTO_STATUS (no schedule available)."
+            fi
         fi
     else
         log "Failed to fetch Power-On Schedule."

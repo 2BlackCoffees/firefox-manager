@@ -17,9 +17,6 @@
     <link rel="icon" type="image/png" sizes="32x32" href="assets/time-gate-icon-web.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/time-gate-icon-web.png">
 
-    <div class="logo">☯ TIMEGATE <span class="accent">// STEALTH</span></div>
-
-
 </head>
 <body>
 
@@ -135,7 +132,7 @@
     </div>
     <div id="timeAccessesModal" class="modal-overlay" style="display: none;">
         <div class="modal-card settings-card">
-            <div class="modal-header">🛡️ ACCESS GUARD RESTRICTIONS</div>
+            <div id="headerTimeAccessesModal" class="modal-header">🛡️ ACCESS GUARD RESTRICTIONS</div>
             <div class="modal-body">
 
                 <section class="widget-row glass">
@@ -169,6 +166,17 @@
         </div>
     </div>
 
+    <div id="acceptDeclineModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card" style="border: 2px solid #ff3333;">
+            <div class="modal-header" style="color: #ff3333;">Title goes here</div>
+            <div id="warningMessage" class="modal-body" style="text-align: left; font-size: 0.9em;">
+                </div>
+            <div class="modal-btns">
+                <button id="warningConfirm" class="btn-cyan">ACCEPT</button>
+                <button id="warningCancel" class="btn-ghost">DECLINE</button>
+            </div>
+        </div>
+    </div>
 
     <div id="authModal" class="modal-overlay" style="display: none;">
         <div class="modal-card">

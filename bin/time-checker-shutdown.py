@@ -284,10 +284,10 @@ class SecureEmailNotifier:
             print(f"Camera error: {e}")
             return None
 
-    def send_notification(self, status_message: str, next_info: str, grace_period: int) -> bool:
+    def send_notification(self, status_message: str, next_info: str, photo_to_be_sent: bool, grace_period: int) -> bool:
         subject = f"⚠️ Access VIOLATION! - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         coords = self._get_coords()
-        photo_path = self._capture_photo()
+        photo_path: str | None = self._capture_photo() if photo_to_be_sent else None
         
         # Base text body
         body_text = f"""System Auto-Shutdown Alert: Access Violation detected.
@@ -318,8 +318,17 @@ The system will shutdown in {grace_period} seconds.
                     <div style="background: #f8f9fa; padding: 10px; border-left: 4px solid #d9534f;">
                         <code>{next_info}</code>
                     </div>
+                    """ 
+            if photo_to_be_sent and photo_path and os.path.exists(photo_path):
+                html_body += f"""
                     <p><b>Incident Photo:</b></p>
                     <img src="cid:incident_photo" style="max-width: 500px; border: 2px solid #000;">
+                """
+            elif not photo_to_be_sent:
+                html_body += f"""Photo capture is not allowed."""
+            else:
+                html_body += f"""Photo capture failed."""
+            html_body += f"""
                     <hr>
                     <p style="color: #666; font-size: 12px;">Shutdown in {grace_period}s | Host: {os.uname().nodename}</p>
                 </body>
@@ -356,7 +365,6 @@ The system will shutdown in {grace_period} seconds.
             print(f"Failed to send email: {e}")
             return False
 
-
 class TimeRangeChecker:
     """Time range checker with cron support and shutdown capability."""
     
@@ -371,9 +379,15 @@ class TimeRangeChecker:
         self.request_file_sync: str = request_file_sync
         self.time_config: dict[str, list[tuple[int, int]]] = {}
         self.cron_rules: list[str] = []
+        self.send_photo: bool = False 
+
         self.__initialize_and_wait_bash_script()
         self._parse_config()
 
+    def photos_to_be_sent(self) -> bool:
+        """Check if photos should be sent based on config."""
+        return self.send_photo
+    
     def __initialize_and_wait_bash_script(self) -> None:
         # Clear old data so we CAN'T read stale settings
         if os.path.exists(self.config_file):
@@ -423,13 +437,18 @@ class TimeRangeChecker:
                     
                     if not line or line.startswith('#'):
                         continue
-                    
+
+                    if line.startswith("send_photo:"):
+                        status_val = line.split(":", 1)[1].strip().lower()
+                        self.send_photo = (status_val == 'true')
+                        Logger.log(f"Photo status set to: {self.send_photo}")
+                        continue
                     # Try to detect format
                     # Cron format: 5 fields separated by spaces (might have @directives)
                     # Traditional format: day_spec: time_ranges
                     
                     # Check for cron format (@reboot, @hourly, etc. or 5 fields)
-                    if line.startswith('@') or (len(line.split()) >= 5 and ':' not in line.split()[0]):
+                    elif line.startswith('@') or (len(line.split()) >= 5 and ':' not in line.split()[0]):
                         try:
                             # Handle special cron strings
                             if line.startswith('@'):
@@ -698,7 +717,7 @@ Examples:
                 next_info = f"Next window: {next_window[0]}" if next_window else "No upcoming windows"
                 
                 if mail_required:
-                    notifier.send_notification(status_message, next_info, grace_period)
+                    notifier.send_notification(status_message, next_info, checker.photos_to_be_sent(), grace_period)
                 
                 if args.dry_run:
                     Logger.log("🧪 DRY RUN - Shutdown skipped")

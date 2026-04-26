@@ -169,9 +169,6 @@ async function refreshSingleStatus() {
 
     try {
         const res = await apiGetRequest(`${API_URL}/clients/get-status`, getHeaders(null, activeId));
-        // const res = await fetch(`${API_URL}/clients/get-status`, { 
-        //     headers: getHeaders(activeId, null) 
-        // });
         const data = await res.json();
         
         // Update ONLY the LED color
@@ -207,8 +204,14 @@ function updateSyntheticView(data) {
     const summary = document.getElementById('todayWindows');
     const todayIndex = new Date().getDay();
 
+    if (data === undefined) {
+        console.log("Schedule data is undefined, loading state will not be updated.");
+        return;
+    }
+    console.log("Updating synthetic view with schedule data:", data);
     let gridHTML = '';
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < Math.min(dayNames.length, data.length); i++) {
+        console.log(`Calculating hours for ${i}: ${dayNames[i]} with ranges:`, data[i]);
         const hours = calculateDailyTotal(data[i]);
         const isToday = i === todayIndex;
         gridHTML += `
@@ -285,10 +288,12 @@ function showAlert(type = 'info', title = 'SYSTEM MESSAGE', message = '') {
 
         // 1. Set the text
         infoTitle.textContent = `☯ ${title.toUpperCase()}`;
-        infoMessage.textContent = message;
+        
+        // Use innerHTML instead of textContent to render the warning structure
+        infoMessage.innerHTML = message; 
 
         // 2. Set the style based on type
-        infoTitle.className = 'modal-header'; // Reset
+        infoTitle.className = 'modal-header'; 
         infoTitle.classList.add(`header-${type}`);
 
         // 3. Show and handle close
@@ -369,6 +374,8 @@ openAccessTimeBtn.onclick = () => {
     // Pre-fill the modal with current values from the main screen
     document.getElementById('pickerStart').value = document.getElementById('globalStart').value;
     document.getElementById('pickerEnd').value = document.getElementById('globalEnd').value;
+    document.getElementById('headerTimeAccessesModal').innerHTML = '🛡️ ACCESS GUARD RESTRICTIONS<BR>DEVICE: <B>' + 
+                                                                        (getClient()?.toUpperCase() || 'No client selected!') + "</B>";
     
     timeAccessesModal.style.display = 'flex';
 };
@@ -407,6 +414,8 @@ updateFirefoxAccessTime.onclick = async () => {
     } catch (error) {
         console.error("Update Firefox Access Time Failed:", error);
     }
+    timeAccessesModal.style.display = 'none';
+
 };
 
 openSettingsBtn.onclick = async () => {
@@ -435,30 +444,49 @@ async function loadSchedule() {
 
 saveScheduledButton.onclick = async () => {
     const currentData = scheduler.getSchedule();
+    const photoAuth = scheduler.getPhotoStatus(); 
+    
     const key = await requestPassword("AUTHORIZE POWER ON TIME UPDATE");
     const client = getClient();
     if(!client) return;
-
     if (!key) return;
 
     try {
-
         const res = await fetch(`${API_URL}/settings/poweronschedule`, {
             method: 'POST',
             headers: getHeaders(key, client),
-            body: JSON.stringify({ schedule: currentData })
+            body: JSON.stringify({ 
+                schedule: currentData,
+                send_photo: photoAuth 
+            })
         });
 
         if (res.ok) {
-            await showAlert('info', 'Schedule Deployed', "Protocol updated successfully.");
+            console.log("Schedule updated successfully on server. Current schedule:", currentData, "Photo capture enabled:", photoAuth);    
+            var message = "Protocol updated successfully.";
+            if (photoAuth) {
+                message = `
+                            <strong>Protocol updated successfully.</strong><br><br>
+                            <span style="color: #ff3333; font-weight: bold;">EVIDENTIARY USE & LIABILITY NOTICE:</span><br>
+                            Photo capture is <strong>ENABLED</strong> for the purpose of identifying unauthorized users and recovering the device in the event of theft.<br><br>
+                            By activating this feature, you acknowledge and agree:
+                            <ul style="text-align: left; font-size: 0.9em; margin-top: 10px;">
+                                <li><strong>Compliance:</strong> You are solely responsible for ensuring that the capture and storage of images (including those of potential suspects) complies with local surveillance and data privacy laws.</li>
+                                <li><strong>Law Enforcement:</strong> While these images are intended for police investigation, the developer does not guarantee the admissibility of such evidence in court.</li>
+                                <li><strong>No Liability:</strong> The developer is not responsible for any legal repercussions arising from the capture or sharing of these images with third parties or authorities.</li>
+                                <li><strong>Privacy:</strong> You represent that the device is deployed in a location where the capture of such images is legally permissible for security purposes.</li>
+                            </ul>`;           
+            } 
+            await showAlert('info', 'Schedule Deployed', message);
             updateSyntheticView(currentData);
         } else {
             await showAlert('error', 'Schedule update Failed', "Unauthorized access."); 
         }
     } catch (e) {
-        console.error("PowerOn Schedule failed: ", e)
-
+        console.error("PowerOn Schedule failed: ", e);
     }
+    timeAccessesModal.style.display = 'none';
+
 };
 
 async function init() {
@@ -603,7 +631,7 @@ document.getElementById('addNewTargetBtn').onclick = async () => {
         document.getElementById('newSiteName').value = '';
         document.getElementById('newSiteAddress').value = '';
         await showAlert('info', 'Target Added', `${name} is now in your mission list.`);
-        loadTargets(true); // loadTargets(false);
+        loadTargets(true); 
     } else {
         await showAlert('error', 'Unauthorized', "Invalid password.");
     }
