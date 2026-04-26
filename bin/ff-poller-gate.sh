@@ -9,7 +9,7 @@ if [ -f .env ]; then
 fi
 
 # Set a default poll interval if not defined in .env (in seconds)
-POLL_INTERVAL=10
+POLL_INTERVAL=30
 CONFIG_DIR="/var/lib/ff-limiter"
 CONFIG_FILE="$CONFIG_DIR/state.cfg"
 mkdir -p "$CONFIG_DIR"
@@ -24,6 +24,13 @@ TIME_CHECKER_PATH=/etc/time_checker
 POWER_ON_SCHEDULE=$TIME_CHECKER_PATH/config-time-shutdown.conf
 REQUEST_FILE_SYNC=/run/time_checker_sync.request
 
+save_config() {
+    cat <<EOF > "$CONFIG_FILE"
+MIN_START_TIME="$MIN_START_TIME"
+MAX_START_TIME="$MAX_START_TIME"
+REGISTERED_ID="$REGISTERED_ID"
+EOF
+}
 # 1. Load persisted values or set defaults
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
 
@@ -32,10 +39,44 @@ to_seconds() {
     date -d "$1" +%s
 }
 
-sleep_time() {
-    POLL_INTERVAL=$1
-    log "Sleeping for $POLL_INTERVAL seconds..."
-    sleep "$POLL_INTERVAL"
+call_api() {
+    local endpoint=$1
+    log "curl -s -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -H \"x-client-id: $REGISTERED_ID\" \"${TIMEGATE_API_URL}$endpoint\""
+    curl -s -H "Authorization: Bearer $TIMEGATE_API_SECRET" \
+            -H "x-client-id: $REGISTERED_ID" \
+            "${TIMEGATE_API_URL}$endpoint"
+}
+
+register_device() {
+    if [[ -n "$REGISTERED_ID" ]]; then
+        log "Device already registered as: $REGISTERED_ID"
+        return 0
+    fi
+
+    log "No registration found. Starting handshake..."
+    
+    # Generate unique key based on MAC address
+    local MAC_ADDR=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address)
+    
+    # Prompt for name if running interactively, otherwise use hostname
+    local DEVICE_NAME=$(hostname)
+
+    log "Registering $DEVICE_NAME ($MAC_ADDR) with backend..."
+    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -d \"{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/register\""
+    RESPONSE=$(curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TIMEGATE_API_SECRET" \
+        -d "{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}" \
+        "$TIMEGATE_API_URL/api/register")
+
+    if [[ $? -eq 0 ]]; then
+        REGISTERED_ID="$DEVICE_NAME"
+        save_config
+        log "Registration successful. ID stored: $REGISTERED_ID"
+    else
+        log "Registration failed. Will retry next loop."
+        return 1
+    fi
 }
 
 wait_for_request() {
@@ -50,12 +91,12 @@ wait_for_request() {
 sync_power_on_schedule() {
     log "Syncing Power-On Schedule..."
     # Fetch from the new endpoint
-    RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/settings/poweronschedule")
-    
+    RESPONSE=$(call_api "/api/settings/poweronschedule")    
     if [ $? -eq 0 ] && [ "$RESPONSE" != "" ]; then
         # 1. to_entries turns {"1": [...]} into [{"key": "1", "value": [...]}]
         # 2. select filters out days with empty arrays
         # 3. join(",") creates "08:00-10:00,17:00-18:00" (no extra spaces)
+        log "Raw schedule response: $RESPONSE"
         FORMATTED_CONFIG=$(echo "$RESPONSE" | jq -r '
             .schedule | to_entries | 
             map(select(.value | length > 0)) | 
@@ -79,9 +120,8 @@ sync_power_on_schedule() {
 }
 
 sync_global_settings() {
-    log "Syncing global time settings..."
-    log "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/settings/time\""
-    RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/settings/time")
+    log "Syncing curfews for $REGISTERED_ID..."
+    RESPONSE=$(call_api "/api/settings/time")
     
     if [ $? -eq 0 ] && [ "$RESPONSE" != "" ]; then
 
@@ -107,6 +147,7 @@ sync_global_settings() {
     fi
 }
 log "Initial start: Time to sync global settings..."
+register_device || exit 1
 sync_global_settings
 wait_for_request
 sync_power_on_schedule
@@ -136,26 +177,33 @@ while true; do
     # --- Case 1: Before Minimum Time ---
     if [[ "$NOW" -lt "$MIN_SEC" ]]; then
         log "Too early ($CURRENT_TIME). Waiting until $MIN_START_TIME..."
-        sleep_time 60
-        continue
+        POLL_INTERVAL=60
 
     # --- Case 2: After Maximum Time ---
     elif [[ "$NOW" -gt "$MAX_SEC" ]]; then
         log "Past limit ($CURRENT_TIME). Stopping services..."
         systemctl stop "ff-limiter@*"
-
-        sleep_time 60
-        continue
+        POLL_INTERVAL=60
     else 
 
         # --- Case 3: Within Allowed Window ---
         # Fetch status from Vercel
-        echo "curl -s -H \"x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET\" \"$TIMEGATE_API_URL/api/poll\""
-        RESPONSE=$(curl -s -H "x-vercel-protection-bypass: $TIMEGATE_BYPASS_SECRET" "$TIMEGATE_API_URL/api/poll")
+        RESPONSE=$(call_api "/api/poll")
         # Check if curl failed
         if [ $? -ne 0 ]; then
             log "Network error. Received: $RESPONSE Retrying in ${POLL_INTERVAL}s..."
         else
+            NEW_INTERVAL=$(echo "$RESPONSE" | jq -r '.next_poll_interval // 45')    
+            
+            # Ensure NEW_INTERVAL is a number before assignment
+            if [[ "$NEW_INTERVAL" =~ ^[0-9]+$ ]]; then
+                POLL_INTERVAL=$NEW_INTERVAL
+                log "Next poll interval set to $POLL_INTERVAL seconds based on server response."
+            else
+                log "Invalid poll interval received: $NEW_INTERVAL. Keeping previous interval of $POLL_INTERVAL seconds."
+            fi
+
+
             STATUS=$(echo "$RESPONSE" | jq -r '.status')
 
             # Only act if the status has changed

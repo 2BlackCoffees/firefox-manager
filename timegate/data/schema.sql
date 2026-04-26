@@ -1,29 +1,52 @@
--- Table for pending allowances waiting to be picked up
-CREATE TABLE IF NOT EXISTS allowances (
-    id SERIAL PRIMARY KEY,
-    sites TEXT[] NOT NULL, -- Array of strings e.g., ['youtube', 'chatgpt']
-    duration_minutes INT NOT NULL,
-    status VARCHAR(20) DEFAULT 'PENDING', -- PENDING, ACTIVE, STOPPED
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+DROP TABLE IF EXISTS global_settings CASCADE;
+DROP TABLE IF EXISTS targets CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+DROP TABLE IF EXISTS history CASCADE;
+DROP TABLE IF EXISTS allowances CASCADE;
+DROP TABLE IF EXISTS clients CASCADE;
+
+-- 2. Create the root client table
+CREATE TABLE clients (
+    id VARCHAR(50) PRIMARY KEY, -- e.g., 'samsung', 'samsung_1'
+    unique_key VARCHAR(255) UNIQUE NOT NULL, -- The MAC address or unique hardware ID
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    heartbeat_ttl INTEGER DEFAULT 45 -- Time in seconds to consider a client "active" after its last heartbeat
 );
 
--- Table for historical data
-CREATE TABLE IF NOT EXISTS history (
+-- 3. Create Allowances (with client_id)
+CREATE TABLE allowances (
     id SERIAL PRIMARY KEY,
+    client_id VARCHAR(50) NOT NULL REFERENCES clients(id),
+    sites TEXT[] NOT NULL,
+    duration_minutes INT NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_allowances_client ON allowances(client_id);
+
+-- 4. Create History (with client_id)
+CREATE TABLE history (
+    id SERIAL PRIMARY KEY,
+    client_id VARCHAR(50) NOT NULL REFERENCES clients(id),
     allowance_id INT,
     sites TEXT[],
     duration_minutes INT,
-    action VARCHAR(50), -- 'CREATED', 'FETCHED_BY_CHILD', 'STOPPED_MANUALLY'
+    action VARCHAR(50),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_history_client ON history(client_id);
 
-
-CREATE TABLE IF NOT EXISTS settings (
+-- 5. Create Settings (with composite unique constraint)
+CREATE TABLE settings (
     id SERIAL PRIMARY KEY,
-    key VARCHAR(50) UNIQUE,
-    value TEXT -- This will store the hashed password
+    client_id VARCHAR(50) REFERENCES clients(id),
+    key VARCHAR(50) NOT NULL,
+    value TEXT,
+    -- This ensures one 'admin_password' globally OR one 'schedule' per client
+    CONSTRAINT unique_settings_identity UNIQUE NULLS NOT DISTINCT (client_id, key)
 );
 
+-- 6. Create Targets (with client_id)
 CREATE TABLE targets (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -31,20 +54,18 @@ CREATE TABLE targets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Optional: Seed with your original targets
-INSERT INTO targets (name, address) VALUES 
-('Youtube', 'youtube.com'),
-('ChatGPT', 'chatgpt.com'),
-('WhatsApp', 'web.whatsapp.com');
-
-CREATE TABLE IF NOT EXISTS global_settings (
+-- 7. Create Global Settings (one row per client)
+CREATE TABLE global_settings (
     id SERIAL PRIMARY KEY,
+    client_id VARCHAR(50) NOT NULL UNIQUE REFERENCES clients(id),
     min_start_time TIME NOT NULL DEFAULT '07:00:00',
     max_start_time TIME NOT NULL DEFAULT '21:30:00',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed the initial row
-INSERT INTO global_settings (id, min_start_time, max_start_time, updated_at) 
-VALUES (1, '07:00:00', '21:30:00', CURRENT_TIMESTAMP)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO targets (name, address) VALUES 
+('Youtube', 'youtube.com'),
+('ChatGPT', 'chatgpt.com'),
+('WhatsApp', 'web.whatsapp.com');
+
+
