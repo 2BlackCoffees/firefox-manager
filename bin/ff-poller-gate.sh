@@ -193,6 +193,7 @@ while true; do
         if [ $? -ne 0 ]; then
             log "Network error. Received: $RESPONSE Retrying in ${POLL_INTERVAL}s..."
         else
+            log "Received response: $RESPONSE"
             NEW_INTERVAL=$(echo "$RESPONSE" | jq -r '.next_poll_interval // 45')    
             
             # Ensure NEW_INTERVAL is a number before assignment
@@ -217,6 +218,8 @@ while true; do
             elif [[ "$STATUS" == "stop"  ]]; then
                 log "Status: STOP. Locking browser."
                 systemctl stop "ff-limiter@*"
+            else
+                log "Status: $STATUS from poll ($RESPONSE). No action taken."
             fi
         fi
 

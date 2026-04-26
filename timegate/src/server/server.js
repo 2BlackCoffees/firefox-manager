@@ -5,9 +5,6 @@ import { compare, hash } from 'bcrypt';
 import { Redis } from '@upstash/redis';
 import 'dotenv/config'; 
 
-// TODO: Associate photos wirh GDPR message, allow photo ondemand
-const HEARTBEAT_TTL = 20;
-
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const SALT_ROUNDS = 10;
@@ -253,7 +250,7 @@ function calculateActiveMinutes(schedule) {
 async function calculateDynamicTTL() {
     const QUOTA = 10000;
     const UI_OVERHEAD = 200; // 1 poll/min for ~3 hours of dashboard use
-    const availableForDevices = QUOTA - UI_OVERHEAD;
+    const MAX_AVAILABLE_SECS_FOR_DEVICE = QUOTA - UI_OVERHEAD;
 
     // 1. Fetch all power_on_schedules
     const result = await pool.query("SELECT value FROM settings WHERE key = 'power_on_schedule'");
@@ -278,8 +275,8 @@ async function calculateDynamicTTL() {
 
     // 2. Solve: (avgDailyActiveSeconds / TTL) = availableForDevices
     // TTL = avgDailyActiveSeconds / availableForDevices
-    let safeTTL = Math.ceil(avgDailyActiveSeconds / availableForDevices);
-    console.log(`Calculated dynamic TTL: ${safeTTL}s based on average daily active seconds (${avgDailyActiveSeconds}s) and available quota (${availableForDevices} requests/day).`);
+    let safeTTL = Math.ceil(avgDailyActiveSeconds / MAX_AVAILABLE_SECS_FOR_DEVICE);
+    console.log(`Calculated dynamic TTL: ${safeTTL}s based on average daily active seconds (${avgDailyActiveSeconds}s) and available quota (${MAX_AVAILABLE_SECS_FOR_DEVICE} requests/day).`);
 
     return Math.max(TTL_PER_CLIENT, safeTTL); // Never go below TTL_PER_CLIENT for stability
 }
@@ -415,7 +412,10 @@ const invalidateAllowance = async (clientId) => {
 
 const getCachedAllowance = async (clientId) => {
     const data = await redis.get(redisAllowanceKey(clientId));
-    return data ? JSON.parse(data) : null;
+    const parsedData = (typeof data === 'string') ? JSON.parse(data) : data;
+
+    console.log(`Cache lookup for client ${clientId}: ${parsedData}`, parsedData ? "HIT" : "MISS");
+    return parsedData ? parsedData : null;
 };
 
 app.get('/api/poll', getClient, async (req, res) => {
@@ -484,6 +484,7 @@ app.post('/api/allow', getClient, checkAuth, async (req, res) => {
         await dbClient.query('COMMIT');
 
         // Update Cache after successful DB commit
+        console.log("Updating cache for client", targetClientId, "with new allowance:", newRow);
         await cacheAllowance(targetClientId, newRow);
         
         res.json(newRow);

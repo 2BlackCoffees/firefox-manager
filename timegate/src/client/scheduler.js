@@ -14,7 +14,8 @@ export class TimeScheduler {
 
     // Set data from the API
     setSchedule(data) {
-        this.scheduleState = data.schedule || {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []};
+        console.log("Setting schedule with data:", data);
+        this.scheduleState = data.days || {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []};
         this.sendPhoto = data.send_photo || false; // Handle new photo authorization field
         this.render();
     }

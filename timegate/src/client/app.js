@@ -51,6 +51,16 @@ async function setClient(id) {
     loadAll();
 }
 
+function getStatusIndicator(client, fleetStatus) {
+    // 🟢 for connected, 🔴 for disconnected, ⚪ for unknown/offline
+    console.log(`Getting status for client ${client} from fleetStatus: ${JSON.stringify(fleetStatus)} for ${JSON.stringify(fleetStatus[client])}`, fleetStatus);
+    if (client in fleetStatus) {
+        return fleetStatus[client].online ? "🟢" : "🔴";
+    }
+    console.warn(`Client ID ${client} not found in fleetStatus. Returning unknown indicator.`);
+    return "⚪"; // Default for unknown/offline
+}
+
 function getClient() {
     if (!selectedClientId) {
             showAlert('error', 'No client selected', "This actions requires a client to be selected."); 
@@ -89,6 +99,7 @@ async function apiGetRequest(url, headers = {}) {
 }
 
 let globalClients = []; 
+let globalFleetStatus = []; 
 async function initClientList() {
     try {
         console.log(`Address server: ${API_URL}/clients`)
@@ -104,7 +115,7 @@ async function initClientList() {
 
             const last = localStorage.getItem('last_selected_client');
             //const initialId = (last && clients.find(c => c.id === last)) ? last : clients[0]?.id;
-            const initialId = (last && globalClients.find(c => c.id === last)) ? last : globalClients[0]?.id;
+            const initialId = (last && globalClients.find(client => client.id === last)) ? last : globalClients[0]?.id;
             refreshFullFleetLabels(); // Load with status indicators
 
             clientSelector.value = initialId;
@@ -137,27 +148,20 @@ clientSelector.onchange = (e) => {
 async function refreshFullFleetLabels() {
     try {
         const res = await fetch(`${API_URL}/clients/status-all`, { headers: getHeaders(null, null) });
-        const fleetStatus = await res.json();
-        renderClientDropdown(clientSelector.value, fleetStatus);
+        globalFleetStatus = await res.json();
+        renderClientDropdown(clientSelector.value, globalFleetStatus);
     } catch (e) { console.error("Fleet sync failed", e); }
 }
 
 function renderClientDropdown(selectedId, fleetStatus = {}) {
     if (!clientSelector) return;
 
-    clientSelector.innerHTML = globalClients.map(c => {
-        const statusData = fleetStatus[c.id];
-        
-        // Define the indicator based on status
-        // 🟢 for connected, 🔴 for disconnected, ⚪ for unknown/offline
-        let indicator = "⚪"; 
-        if (statusData) {
-            indicator = statusData.online ? "🟢" : "🔴";
-        }
+    clientSelector.innerHTML = globalClients.map(client => {
+        const indicator = getStatusIndicator(client.id, fleetStatus);
 
-        const isSelected = c.id === selectedId ? 'selected' : '';
-        return `<option value="${c.id}" ${isSelected}>
-            ${indicator} ${c.id}
+        const isSelected = client.id === selectedId ? 'selected' : '';
+        return `<option value="${client.id}" ${isSelected}>
+            ${indicator} ${client.id}
         </option>`;
     }).join('');
 }
@@ -210,7 +214,7 @@ function updateSyntheticView(data) {
     }
     console.log("Updating synthetic view with schedule data:", data);
     let gridHTML = '';
-    for (let i = 0; i < Math.min(dayNames.length, data.length); i++) {
+    for (let i = 0; i < dayNames.length; i++) {
         console.log(`Calculating hours for ${i}: ${dayNames[i]} with ranges:`, data[i]);
         const hours = calculateDailyTotal(data[i]);
         const isToday = i === todayIndex;
@@ -374,8 +378,13 @@ openAccessTimeBtn.onclick = () => {
     // Pre-fill the modal with current values from the main screen
     document.getElementById('pickerStart').value = document.getElementById('globalStart').value;
     document.getElementById('pickerEnd').value = document.getElementById('globalEnd').value;
-    document.getElementById('headerTimeAccessesModal').innerHTML = '🛡️ ACCESS GUARD RESTRICTIONS<BR>DEVICE: <B>' + 
-                                                                        (getClient()?.toUpperCase() || 'No client selected!') + "</B>";
+    let statusText = "No client selected";
+    const client = getClient();
+    if (client) {
+        console.log(`Found client ${JSON.stringify(client)} for access time modal, determining status text with fleetStatus:`, globalFleetStatus);
+        statusText = getStatusIndicator(client, globalFleetStatus) + " " + client.toUpperCase()  ;
+    }
+    document.getElementById('headerTimeAccessesModal').innerHTML = '🛡️ ACCESS GUARD RESTRICTIONS<BR>DEVICE: <B>' + statusText + "</B>";
     
     timeAccessesModal.style.display = 'flex';
 };
@@ -435,8 +444,9 @@ async function loadSchedule() {
     try {
         const res = await fetch(`${API_URL}/settings/poweronschedule`, { headers: getHeaders(null, client) });
         const data = await res.json();
+        console.log("loadSchedule: Loaded schedule data:", data);
         scheduler.setSchedule(data);
-        updateSyntheticView(data.schedule);
+        updateSyntheticView(data.days);
     } catch (e) { 
         console.error("Failed to load schedule", e);
     }
