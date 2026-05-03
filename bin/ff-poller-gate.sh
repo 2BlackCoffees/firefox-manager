@@ -104,6 +104,7 @@ sync_power_on_schedule() {
         # NEW DATA FOUND: Overwrite the whole file with new photo status and new schedule
         {
             echo "send_photo: $NEW_PHOTO_STATUS"
+            echo "registered_id: $REGISTERED_ID"
             echo "$RESPONSE" | jq -r '
                 .days | to_entries | 
                 map(select(.value | length > 0)) | 

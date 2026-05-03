@@ -284,13 +284,13 @@ class SecureEmailNotifier:
             print(f"Camera error: {e}")
             return None
 
-    def send_notification(self, status_message: str, next_info: str, photo_to_be_sent: bool, grace_period: int) -> bool:
-        subject = f"⚠️ Access VIOLATION! - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    def send_notification(self, status_message: str, next_info: str, photo_to_be_sent: bool, registered_id: str, grace_period: int) -> bool:
+        subject = f"⚠️ {registered_id} - Access VIOLATION! - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         coords = self._get_coords()
         photo_path: str | None = self._capture_photo() if photo_to_be_sent else None
         
         # Base text body
-        body_text = f"""System Auto-Shutdown Alert: Access Violation detected.
+        body_text = f"""System Auto-Shutdown Alert: Access Violation detected on computer {registered_id}.
 
 Location: https://www.google.com/maps?q={coords}
 Hostname: {os.uname().nodename}
@@ -380,6 +380,7 @@ class TimeRangeChecker:
         self.time_config: dict[str, list[tuple[int, int]]] = {}
         self.cron_rules: list[str] = []
         self.send_photo: bool = False 
+        self.registered_id: str = ""
 
         self.__initialize_and_wait_bash_script()
         self._parse_config()
@@ -387,6 +388,10 @@ class TimeRangeChecker:
     def photos_to_be_sent(self) -> bool:
         """Check if photos should be sent based on config."""
         return self.send_photo
+    
+    def computer_registered_id(self) -> str:
+        """Get registered ID to be sent based on config."""
+        return self.registered_id
     
     def __initialize_and_wait_bash_script(self) -> None:
         # Clear old data so we CAN'T read stale settings
@@ -443,6 +448,10 @@ class TimeRangeChecker:
                         self.send_photo = (status_val == 'true')
                         Logger.log(f"Photo status set to: {self.send_photo}")
                         continue
+                    elif line.startswith("registered_id:"):
+                        self.registered_id = line.split(":", 1)[1].strip()
+                        Logger.log(f"Registered ID set to: {self.registered_id}")
+                        continue                        
                     # Try to detect format
                     # Cron format: 5 fields separated by spaces (might have @directives)
                     # Traditional format: day_spec: time_ranges
@@ -717,7 +726,7 @@ Examples:
                 next_info = f"Next window: {next_window[0]}" if next_window else "No upcoming windows"
                 
                 if mail_required:
-                    notifier.send_notification(status_message, next_info, checker.photos_to_be_sent(), grace_period)
+                    notifier.send_notification(status_message, next_info, checker.photos_to_be_sent(), checker.computer_registered_id(), grace_period)
                 
                 if args.dry_run:
                     Logger.log("🧪 DRY RUN - Shutdown skipped")
