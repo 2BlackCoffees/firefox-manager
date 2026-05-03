@@ -315,9 +315,19 @@ async function secureApi(path, method, body, client = null) {
     const key = await requestPassword();
     if (!key) return;
 
-    const res = await fetch(`${API_URL}${path}`, {
+    const url = `${API_URL}${path}`
+    const headers = getHeaders(key, client)
+    const curlArgs = Object.entries(headers)
+        .map(([key, value]) => `-H "${key}: ${value}"`)
+        .join(' ');
+    
+    const curlCommand = `curl -X ${method} "${url}" ${curlArgs} -d '${JSON.stringify(body)}'`;
+    
+    console.log("%c DEBUG CURL ", "background: #222; color: #bada55; font-weight: bold;", curlCommand);
+
+    const res = await fetch(url, {
         method,
-        headers: getHeaders(key, client),
+        headers: headers,
         body: JSON.stringify(body)
     });
 
