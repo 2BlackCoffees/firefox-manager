@@ -498,10 +498,13 @@ app.post('/api/allow', getClient, checkAuth, async (req, res) => {
 });
 
 app.post('/api/stop', getClient, checkAuth, async (req, res) => {
-    await pool.query('INSERT INTO allowances (client_id, sites, duration_minutes, status) VALUES ($1, $2, $3, $4)', [req.clientId, [], 0, 'stop']);
+    const insertResult = await pool.query('INSERT INTO allowances (client_id, sites, duration_minutes, status) VALUES ($1, $2, $3, $4)  RETURNING *', [req.clientId, [], 0, 'stop']);
     await pool.query('INSERT INTO history (client_id, action) VALUES ($1, $2)', [req.clientId, 'STOPPED_MANUALLY']);
+
+    const newRow = insertResult.rows[0];
+
     // Update Cache
-    await invalidateAllowance(req.clientId);
+    await cacheAllowance(req.clientId, newRow);
     res.json({ success: true });
 });
 
