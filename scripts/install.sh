@@ -8,6 +8,7 @@ echo ""
 MAIL_CONFIG=$SCRIPT_DIR/../misc/config-mail.ini
 
 preinstall() {
+
     sudo apt update && sudo apt install openssh-server -y && sudo apt install fswebcam -y
     sudo systemctl enable --now ssh
     sudo ufw allow ssh
@@ -108,7 +109,6 @@ install_files() {
     sudo chmod 600 /etc/time_checker/config-time-shutdown.conf
 
     sudo chmod +x /usr/local/bin/ff-*.sh
-    # sudo sed -i "s/<user>/$USER/g" /etc/systemd/system/ff-starter.service
 
     sudo loginctl enable-linger $USER
     sudo systemctl daemon-reload
