@@ -5,14 +5,16 @@ import { compare, hash } from 'bcrypt';
 import { Redis } from '@upstash/redis';
 import 'dotenv/config'; 
 
-// TODO: Associate photos wirh GDPR message, allow photo ondemand
-const HEARTBEAT_TTL = 20;
-
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const SALT_ROUNDS = 10;
 const DEFAULT_TTL = 45; // Default TTL in seconds if not set in DB or Redis
 const TTL_PER_CLIENT = 10; // TTL per client to ensure we don't exceed quota considering 1 client 24 hours = 86400 seconds, so 10s TTL allows for ~8640 requests/day which is under our 10k quota with some buffer.
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 app.use(cors());
 app.use(json());
@@ -153,10 +155,6 @@ app.get('/api/clients/get-status', getClient, async (req, res) => {
     }
 });
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
 
 export async function isAuthorized(req) {
   // 1. Get the key from the incoming request header
@@ -252,7 +250,7 @@ function calculateActiveMinutes(schedule) {
 async function calculateDynamicTTL() {
     const QUOTA = 10000;
     const UI_OVERHEAD = 200; // 1 poll/min for ~3 hours of dashboard use
-    const availableForDevices = QUOTA - UI_OVERHEAD;
+    const MAX_AVAILABLE_SECS_FOR_DEVICE = QUOTA - UI_OVERHEAD;
 
     // 1. Fetch all power_on_schedules
     const result = await pool.query("SELECT value FROM settings WHERE key = 'power_on_schedule'");
@@ -277,8 +275,8 @@ async function calculateDynamicTTL() {
 
     // 2. Solve: (avgDailyActiveSeconds / TTL) = availableForDevices
     // TTL = avgDailyActiveSeconds / availableForDevices
-    let safeTTL = Math.ceil(avgDailyActiveSeconds / availableForDevices);
-    console.log(`Calculated dynamic TTL: ${safeTTL}s based on average daily active seconds (${avgDailyActiveSeconds}s) and available quota (${availableForDevices} requests/day).`);
+    let safeTTL = Math.ceil(avgDailyActiveSeconds / MAX_AVAILABLE_SECS_FOR_DEVICE);
+    console.log(`Calculated dynamic TTL: ${safeTTL}s based on average daily active seconds (${avgDailyActiveSeconds}s) and available quota (${MAX_AVAILABLE_SECS_FOR_DEVICE} requests/day).`);
 
     return Math.max(TTL_PER_CLIENT, safeTTL); // Never go below TTL_PER_CLIENT for stability
 }
@@ -414,7 +412,10 @@ const invalidateAllowance = async (clientId) => {
 
 const getCachedAllowance = async (clientId) => {
     const data = await redis.get(redisAllowanceKey(clientId));
-    return data ? JSON.parse(data) : null;
+    const parsedData = (typeof data === 'string') ? JSON.parse(data) : data;
+
+    console.log(`Cache lookup for client ${clientId}: ${parsedData}`, parsedData ? "HIT" : "MISS");
+    return parsedData ? parsedData : null;
 };
 
 app.get('/api/poll', getClient, async (req, res) => {
@@ -483,6 +484,7 @@ app.post('/api/allow', getClient, checkAuth, async (req, res) => {
         await dbClient.query('COMMIT');
 
         // Update Cache after successful DB commit
+        console.log("Updating cache for client", targetClientId, "with new allowance:", newRow);
         await cacheAllowance(targetClientId, newRow);
         
         res.json(newRow);
@@ -497,9 +499,9 @@ app.post('/api/allow', getClient, checkAuth, async (req, res) => {
 
 app.post('/api/stop', getClient, checkAuth, async (req, res) => {
     await pool.query('INSERT INTO allowances (client_id, sites, duration_minutes, status) VALUES ($1, $2, $3, $4)', [req.clientId, [], 0, 'stop']);
-    await pool.query('INSERT INTO history (client_id, action) VALUES ($1)', [req.clientId, 'STOPPED_MANUALLY']);
+    await pool.query('INSERT INTO history (client_id, action) VALUES ($1, $2)', [req.clientId, 'STOPPED_MANUALLY']);
     // Update Cache
-    await cacheAllowance(req.clientId, stopData);
+    await invalidateAllowance(req.clientId);
     res.json({ success: true });
 });
 
@@ -641,38 +643,53 @@ app.delete('/api/targets/:id', checkAuth, async (req, res) => {
 // Get the power-on schedule
 app.get('/api/settings/poweronschedule', getClient, async (req, res) => {
     try {
-        const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id = $2', ['power_on_schedule', req.clientId]);
+        const query = 'SELECT value FROM settings WHERE key = $1 AND client_id = $2';
+        const result = await pool.query(query, ['power_on_schedule', req.clientId]);
+
         if (result.rows.length > 0) {
-            // Parse the JSON string back into an object
-            res.json({ schedule: JSON.parse(result.rows[0].value) });
+            // Directly return the stored JSON object
+            const settings = JSON.parse(result.rows[0].value);
+            res.json(settings);
         } else {
-            // Return default empty structure if not set
-            res.json({ schedule: {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []} });
+            // Return a clean default structure
+            res.json({
+                send_photo: false,
+                days: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }
+            });
         }
 
-        syncGlobalQuota(); // Recalculate global TTL based on the schedules (in case they changed externally)
+        syncGlobalQuota(); 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Update the power-on schedule (Protected)
 app.post('/api/settings/poweronschedule', getClient, checkAuth, async (req, res) => {
-    const { schedule } = req.body;
+    // Expecting { schedule: {...}, send_photo: boolean } in the request body
+    const { schedule, send_photo } = req.body;
     
     if (!schedule) {
         return res.status(400).json({ error: "Schedule data is required" });
     }
 
     try {
+        // Construct the unified object for the DB
+        // We use the same structure the GET route expects: { send_photo, days }
+        const settingsValue = {
+            send_photo: send_photo ?? false, // Default to false if not provided
+            days: schedule
+        };
 
         await pool.query(
-                `INSERT INTO settings (client_id, key, value) VALUES ($1, $2, $3) 
-                 ON CONFLICT (client_id, key) DO UPDATE SET value = EXCLUDED.value`,
-                [req.clientId, 'power_on_schedule', JSON.stringify(schedule)]
+            `INSERT INTO settings (client_id, key, value) VALUES ($1, $2, $3) 
+             ON CONFLICT (client_id, key) DO UPDATE SET value = EXCLUDED.value`,
+            [req.clientId, 'power_on_schedule', JSON.stringify(settingsValue)]
         );
 
-        res.json({ success: true });
+        res.json({ 
+            success: true, 
+            message: "Schedule and photo settings updated successfully" 
+        });
     } catch (err) {
         console.error('Error saving schedule:', err);
         res.status(500).json({ error: err.message });

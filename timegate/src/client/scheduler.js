@@ -1,4 +1,5 @@
-// scheduler.js
+
+
 
 export class TimeScheduler {
     constructor(containerId, options = {}) {
@@ -6,21 +7,36 @@ export class TimeScheduler {
         this.days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         this.scheduleState = {}; 
         this.onSave = options.onSave || null;
+        this.sendPhoto = false; // New state property
+
         console.log("TimeScheduler initialized with container:", this.container);
     }
 
     // Set data from the API
     setSchedule(data) {
-        this.scheduleState = data.schedule || {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []};
+        console.log("Setting schedule with data:", data);
+        this.scheduleState = data.days || {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []};
+        this.sendPhoto = data.send_photo || false; // Handle new photo authorization field
         this.render();
     }
     getSchedule() {
         return this.scheduleState;
     }
+    getPhotoStatus() {
+        return this.sendPhoto;
+    }
     render() {
         if (!this.container) return;
 
-        this.container.innerHTML = this.days.map((day, index) => {
+        let html = `
+            <div class="photo-config-header" style="margin-bottom: 20px; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid var(--cyan);">
+                <label style="display: flex; align-items: center; cursor: pointer; gap: 10px;">
+                    <input type="checkbox" id="photoAuthToggle" ${this.sendPhoto ? 'checked' : ''} style="width: 20px; height: 20px;">
+                    <span style="font-weight: bold; color: var(--cyan);">AUTHORIZE PHOTO ON UNAUTHORIZED ACCESS</span>
+                </label>
+            </div>
+        `;
+        html += this.days.map((day, index) => {
             const ranges = this.scheduleState[index] || [];
             //console.log(`Rendering ${day} (${index}: ${this.scheduleState[index]}):`, ranges);
             return `
@@ -44,10 +60,59 @@ export class TimeScheduler {
             `;
         }).join('');
 
+        this.container.innerHTML = html;
         this.attachEventListeners();
     }
 
     attachEventListeners() {
+
+        const photoToggle = this.container.querySelector('#photoAuthToggle');
+        if (photoToggle) {
+            photoToggle.onchange = (e) => {
+                if (e.target.checked) {
+                    // 1. Prepare the dynamic content
+                    const title = "⚠️ LEGAL AUTHORIZATION";
+                    const warningText = `
+                        <p>By enabling <strong>Photo Capture</strong>, you authorize the device to record imagery of individuals during unauthorized access events.</p>
+                        <p>This feature is intended for <strong>theft recovery</strong> and <strong>police evidence</strong>. However, use of surveillance technology is strictly regulated.</p>
+                        <hr style="border: 0; border-top: 1px solid #444; margin: 10px 0;">
+                        <p style="font-size: 0.85em; color: #bbb;">
+                            You acknowledge sole responsibility for compliance with local privacy laws (GDPR, CCPA, etc.). 
+                            The developer/provider is <strong>not liable</strong> for any legal repercussions or data breaches.
+                        </p>
+                    `;
+
+                    // 2. Reference the new generic modal elements
+                    const modal = document.getElementById('acceptDeclineModal');
+                    const header = modal.querySelector('.modal-header');
+                    const body = document.getElementById('warningMessage');
+                    const confirmBtn = document.getElementById('warningConfirm');
+                    const cancelBtn = document.getElementById('warningCancel');
+
+                    // 3. Inject the content
+                    header.innerText = title;
+                    body.innerHTML = warningText;
+
+                    // 4. Show modal
+                    modal.style.display = 'flex';
+
+                    // 5. Handle responses
+                    confirmBtn.onclick = () => {
+                        this.sendPhoto = true;
+                        modal.style.display = 'none';
+                        console.log("Photo capture authorized by user.");
+                    };
+
+                    cancelBtn.onclick = () => {
+                        e.target.checked = false; // Uncheck the toggle
+                        this.sendPhoto = false;
+                        modal.style.display = 'none';
+                    };
+                } else {
+                    this.sendPhoto = false;
+                }
+            };
+        }
 
         this.container.querySelectorAll('.btn-add-range').forEach(btn => {
             btn.onclick = (e) => {
