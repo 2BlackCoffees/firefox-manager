@@ -1,11 +1,18 @@
 #!/bin/bash
 
 set -e
-    SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 echo "=== FireFox Manager Installation ==="
 echo ""
-MAIL_CONFIG=$SCRIPT_DIR/../misc/config-mail.ini
+LOCAL_MAIL_CONFIG=$SCRIPT_DIR/../misc/config-mail.ini
+OTA_PENDING="/var/lib/ff-limiter/ota_pending"
+LOG_FILE="/var/log/ff-install.log"
+FIREFOX_PERMANENT_FILES="/usr/local/etc/firefox_permanent_sites.txt"
+LOCAL_DOT_ENV=$SCRIPT_DIR/../bin/.env
+DOT_ENV="/usr/local/bin/.env"
+MAIL_CONFIG="/etc/time_checker/config-mail.ini"
+CONFIG_TIME_SHUTDOWN="/etc/time_checker/config-time-shutdown.conf"
 
 preinstall() {
 
@@ -61,7 +68,7 @@ uninstall_all() {
     systemctl --user disable ff-bell.service || true
     
     sudo rm -f /etc/systemd/system/ff-limiter@.service || true
-    sudo rm -f /usr/local/etc/firefox_permanent_sites.txt || true
+    sudo rm -f $FIREFOX_PERMANENT_FILES || true
 
     sudo systemctl daemon-reload
     systemctl --user daemon-reload
@@ -69,16 +76,47 @@ uninstall_all() {
     ps -aux | grep -P "ff-.*.sh|time-checker.*.sh" | grep -v grep
 
 }
+
+git_pull() {
+    local branch_name=${1:-main}
+    echo "Pulling latest changes from git repository (branch: $branch_name)..."
+    git -C "$SCRIPT_DIR/.." pull origin $branch_name
+}
+
+log() { 
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] $1" >> $LOG_FILE
+}
+
+update_var_in_file() {
+    local target_file="$1"
+    shift # Remove the file path from the argument list
+
+    # Check if the file exists; if not, create it
+    touch "$target_file"
+    # This function can be used to update the .env file with new values
+    # It takes key-value pairs as arguments and updates the .env file accordingly
+    for kv in "$@"; do
+        key=$(echo "$kv" | cut -d= -f1)
+        value=$(echo "$kv" | cut -d= -f2-)
+        if grep -q "^$key=" "$target_file"; then
+            # Update existing key
+            sed -i "s|^$key=.*|$key=\"$value\"|" "$target_file"
+        else
+            # Add new key
+            echo "$key=\"$value\"" >> "$target_file"
+        fi
+    done
+}
 install_files() {
+    update=${1:-manual}
+    echo "Installing files... (update type: $update)"
     uninstall_all || true
     sudo apt update && sudo apt install jq curl
 
-
     # If ./.env does not exist exit with error 
-    if [ ! -f $SCRIPT_DIR/../bin/.env ]; then
-        echo "Warning: $SCRIPT_DIR/../bin/.env file not found, please read the README.md file to learn how to set it up: No connection to the beackend will be possible."
+    if [ ! -f $LOCAL_DOT_ENV ]; then
+        echo "Warning: $LOCAL_DOT_ENV file not found, please read the README.md file to learn how to set it up: No connection to the beackend will be possible."
     fi
-
 
     mkdir -p ~/.config/systemd/user
     sudo mkdir -p /etc/time_checker
@@ -90,23 +128,23 @@ install_files() {
     sudo cp $SCRIPT_DIR/../bin/ff-limiter.sh /usr/local/bin/ff-limiter.sh
     sudo cp $SCRIPT_DIR/../bin/ff-poller-gate.sh /usr/local/bin/ff-poller-gate.sh
     sudo cp $SCRIPT_DIR/../bin/time-checker-shutdown.py /usr/local/bin/time-checker-shutdown.py
-    sudo cp $SCRIPT_DIR/../bin/.env /usr/local/bin/.env
-    [ -f "$MAIL_CONFIG" ] && sudo cp "$MAIL_CONFIG" /etc/time_checker/config-mail.ini    
-    sudo cp $SCRIPT_DIR/../misc/config-time-shutdown.conf /etc/time_checker/config-time-shutdown.conf
+    sudo cp $LOCAL_DOT_ENV $DOT_ENV
+    [ -f "$LOCAL_MAIL_CONFIG" ] && sudo cp "$LOCAL_MAIL_CONFIG" $MAIL_CONFIG    
+    sudo cp $SCRIPT_DIR/../misc/config-time-shutdown.conf $CONFIG_TIME_SHUTDOWN
     sudo cp $SCRIPT_DIR/../services/time-checker.service /etc/systemd/system/time-checker.service
     sudo cp $SCRIPT_DIR/../services/ff-poller-gate.service /etc/systemd/system/ff-poller-gate.service
     sudo cp $SCRIPT_DIR/../services/ff-killer.service /etc/systemd/system/ff-killer.service
     sudo cp $SCRIPT_DIR/../services/ff-limiter@.service /etc/systemd/system/ff-limiter@.service
 
-    sudo cp $SCRIPT_DIR/../misc/firefox_permanent_sites.txt /usr/local/etc/firefox_permanent_sites.txt
-    sudo chown root:root /usr/local/etc/firefox_permanent_sites.txt
-    sudo chown root:root /usr/local/bin/.env
-    sudo chown root:root /etc/time_checker/config-mail.ini
-    sudo chown root:root /etc/time_checker/config-time-shutdown.conf
-    sudo chmod 644 /usr/local/etc/firefox_permanent_sites.txt
-    sudo chmod 600 /usr/local/bin/.env
-    sudo chmod 600 /etc/time_checker/config-mail.ini
-    sudo chmod 600 /etc/time_checker/config-time-shutdown.conf
+    sudo cp $SCRIPT_DIR/../misc/firefox_permanent_sites.txt $FIREFOX_PERMANENT_FILES
+    sudo chown root:root $FIREFOX_PERMANENT_FILES
+    sudo chown root:root $DOT_ENV
+    sudo chown root:root $MAIL_CONFIG
+    sudo chown root:root $CONFIG_TIME_SHUTDOWN
+    sudo chmod 644 $FIREFOX_PERMANENT_FILES
+    sudo chmod 600 $DOT_ENV
+    sudo chmod 600 $MAIL_CONFIG
+    sudo chmod 600 $CONFIG_TIME_SHUTDOWN
 
     sudo chmod +x /usr/local/bin/ff-*.sh
 
@@ -121,17 +159,47 @@ install_files() {
     systemctl --user enable ff-bell.service
     systemctl --user start ff-starter.service
     systemctl --user start ff-bell.service
-    systemctl list-units --all "ff-*"
-    systemctl list-units --all "time-checker*"
-    sudo systemctl status time-checker.service
-    sudo systemctl status ff-killer.service
-    sudo systemctl status ff-poller-gate.service
-    systemctl --user status ff-starter.service
-    systemctl --user status ff-bell.service
 
-    ps -aux | grep -P "ff-.*.sh|time-checker" | grep -v grep
+    # Verifications
+    if [[ $update == "ota" ]]; then
+        if [ -f "$OTA_PENDING" ]; then
+            echo "OTA update completed ... OTA update flag detected. Cleaning up..."
+            sudo rm -f "$OTA_PENDING"
+            echo "Flag removed. OTA update process should proceed as expected."
+        else
+            echo "OTA update completed ... No OTA update flag detected. Please check the update process for issues."
+        fi
+    else
+        systemctl list-units --all "ff-*"
+        systemctl list-units --all "time-checker*"
+        sudo systemctl status time-checker.service
+        sudo systemctl status ff-killer.service
+        sudo systemctl status ff-poller-gate.service
+        systemctl --user status ff-starter.service
+        systemctl --user status ff-bell.service
+
+        ps -aux | grep -P "ff-.*.sh|time-checker" | grep -v grep
+    fi
 
 }
+
+configure_ota() {
+
+    # List the variables you want to sync
+    vars_to_sync=("TIMEGATE_API_URL" "TIMEGATE_BYPASS_SECRET")
+
+    for var_name in "${vars_to_sync[@]}"; do
+        # Get the value of the variable name stored in var_name
+        value="${!var_name}"
+
+        if [[ -n "$value" && "$value" != "none" ]]; then
+            update_var_in_file "$LOCAL_DOT_ENV" "$var_name=$value"
+            echo "Synced $var_name to $LOCAL_DOT_ENV with value: $value"
+        else
+            echo "Variable $var_name is not set or is set to 'none'. Skipping sync for this variable."
+        fi
+    done
+}   
 
 next_steps() {
     echo "Installation complete!"
@@ -166,10 +234,10 @@ test() {
     tail -n 60 /var/log/firefox_usage.log
 }
 
-if [ ! -f $MAIL_CONFIG ]; then
+if [ ! -f $LOCAL_MAIL_CONFIG ]; then
     echo ""
     echo "Mail Configuration file not found."
-    echo "Please create $MAIL_CONFIG with your mail credentials."
+    echo "Please create $LOCAL_MAIL_CONFIG with your mail credentials."
     echo ""
     read -p "Do you want to create the config file now? (y/n) " -n 1 -r
     echo
@@ -177,7 +245,7 @@ if [ ! -f $MAIL_CONFIG ]; then
         read -p "Enter your mail address: " mail_addr
         read -p "Enter your mail App Password: " mail_pass
         
-        cat > $MAIL_CONFIG <<EOF
+        cat > $LOCAL_MAIL_CONFIG <<EOF
 # Time Monitor Configuration
 SENDER_EMAIL="$mail_addr"
 RECIPIENT_EMAIL="$mail_addr"
@@ -190,14 +258,39 @@ EOF
     fi
 fi
 
-if [ "$1" == "run" ]; then
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+
+if [ -n "$REPO_ROOT" ]; then
+    update_var_in_file $DOT_ENV "GIT_REPO_PATH=$REPO_ROOT"
+else
+    echo "Error: Not currently in a Git repository: OTA will not work!"
+fi
+
+action=${1:-none}
+if [ "$action" == "run" ]; then
     preinstall
     install_files
     next_steps
     test
-elif [ $1 == "update" ]; then
+elif [ "$action" == "update" ]; then
     install_files
-elif [ $1 == "uninstall" ]; then
+elif [ "$action" == "ota" ]; then
+
+    log "Starting OTA update process..."
+    if [[ -f "$OTA_PENDING" ]]; then
+        source "$OTA_PENDING"
+        configure_ota 2>&1 | tee -a "$LOG_FILE"
+        git_pull "$BRANCH_NAME" 2>&1 | tee -a "$LOG_FILE"
+        install_files ota 2>&1 | tee -a "$LOG_FILE"
+
+    else
+        echo "Error: $OTA_PENDING not found." 2>&1 | tee -a "$LOG_FILE"
+    fi
+
+elif [ "$action" == "uninstall" ]; then
     uninstall_all
+else
+    echo "Usage: $0 {run|update|ota [branch_name]|uninstall}"
+
 fi
 

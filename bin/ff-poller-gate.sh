@@ -3,12 +3,15 @@ log() {
     local message=$1
     echo "[$(date +"%Y-%m-%d %H:%M:%S")] $message" >> "/var/log/ff-poller-gate.log"
 }
+LOCAL_DOT_ENV=".env"
+DOT_ENV="/usr/local/bin/.env"
+
 # Load Environment Variables from .env
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
+if [ -f $LOCAL_DOT_ENV ]; then
+    export $(grep -v '^#' $LOCAL_DOT_ENV | xargs)
 fi
 
-# Set a default poll interval if not defined in .env (in seconds)
+# Set a default poll interval if not defined in $LOCAL_DOT_ENV (in seconds)
 POLL_INTERVAL=30
 CONFIG_DIR="/var/lib/ff-limiter"
 CONFIG_FILE="$CONFIG_DIR/state.cfg"
@@ -23,6 +26,7 @@ LAST_SETTINGS_SYNC=0
 TIME_CHECKER_PATH=/etc/time_checker
 POWER_ON_SCHEDULE=$TIME_CHECKER_PATH/config-time-shutdown.conf
 REQUEST_FILE_SYNC=/run/time_checker_sync.request
+OTA_PENDING="$CONFIG_DIR/ota_pending"
 
 save_config() {
     cat <<EOF > "$CONFIG_FILE"
@@ -219,6 +223,43 @@ while true; do
             elif [[ "$STATUS" == "stop"  ]]; then
                 log "Status: STOP. Locking browser."
                 systemctl stop "ff-limiter@*"
+            elif [[ "$STATUS" == "ota" ]]; then
+                log "OTA update requested. Detaching update process..."
+
+                # Run the installer in a separate, transient systemd unit
+                # --collect ensures the transient unit is cleaned up after it finishes
+                # 1. Check if .env exists
+                if [ ! -f "$DOT_ENV" ]; then
+                    echo "Error: $DOT_ENV not found."
+                    exit 1
+                fi
+
+                # 2. Extract GIT_REPO_PATH
+                # We use 'sed' to remove potential quotes if you added them earlier
+                REPO_PATH=$(grep '^GIT_REPO_PATH=' "$DOT_ENV" | cut -d= -f2- | sed 's/^"//;s/"$//')
+
+                # 3. Validate the path isn't empty
+                if [ -z "$REPO_PATH" ]; then
+                    echo "Error: GIT_REPO_PATH is not defined in $DOT_ENV"
+                    exit 1
+                fi
+
+                # 4. Execute systemd-run
+                BRANCH_NAME=$(echo "$RESPONSE" | jq -r '.branch_name // "main"')
+                TIMEGATE_API_URL=$(echo "$RESPONSE" | jq -r '.timegate_api_url // "none"')
+                TIMEGATE_BYPASS_SECRET=$(echo "$RESPONSE" | jq -r '.timegate_bypass_secret // "none"')
+
+                cat <<EOF > "$OTA_PENDING"
+BRANCH_NAME=$BRANCH_NAME
+TIMEGATE_API_URL=$TIMEGATE_API_URL
+TIMEGATE_BYPASS_SECRET=$TIMEGATE_BYPASS_SECRET
+EOF
+
+                echo "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL"
+                systemd-run --unit=ff-ota-worker --collect /bin/bash "$REPO_PATH/scripts/install.sh" ota 
+
+                log "Update handoff complete. This service will now be restarted by the updater."
+                # We don't remove the flag here; the installer or the recovery script will.
             else
                 log "Status: $STATUS from poll ($RESPONSE). No action taken."
             fi
