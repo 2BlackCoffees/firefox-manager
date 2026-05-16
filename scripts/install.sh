@@ -1,4 +1,5 @@
 #!/bin/bash
+export PS4='+ \d \t $BASH_SOURCE:$LINENO:  --> '
 
 # Ensure script stops on first error
 set -e
