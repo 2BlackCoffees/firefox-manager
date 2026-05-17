@@ -13,13 +13,21 @@ CREATE TABLE clients (
     heartbeat_ttl INTEGER DEFAULT 45 -- Time in seconds to consider a client "active" after its last heartbeat
 );
 
--- 3. Create Allowances (with client_id)
+-- 3. Create Allowances 
 CREATE TABLE allowances (
     id SERIAL PRIMARY KEY,
     client_id VARCHAR(50) NOT NULL REFERENCES clients(id),
-    sites TEXT[] NOT NULL,
-    duration_minutes INT NOT NULL,
-    status VARCHAR(20) DEFAULT 'PENDING',
+    -- Must allow NULL because OTA updates do not use browsing restrictions
+    sites TEXT[] DEFAULT NULL,
+    duration_minutes INT DEFAULT NULL,
+    -- Status handles 'PENDING', 'ota', etc.
+    status VARCHAR(20) DEFAULT 'PENDING', 
+    
+    -- fields required for client OTA dispatching
+    branch_name VARCHAR(255) DEFAULT 'main',
+    timegate_api_url TEXT DEFAULT 'none',
+    timegate_bypass_secret TEXT DEFAULT 'none',
+    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_allowances_client ON allowances(client_id);

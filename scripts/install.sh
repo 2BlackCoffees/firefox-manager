@@ -204,15 +204,15 @@ install_files() {
         else
             echo "OTA update completed ... No OTA update flag detected."
         fi
-    else
-        systemctl list-units --all "ff-*" || true
-        systemctl list-units --all "time-checker*" || true
-        systemctl --user -M "${USER_NAME}@" status ff-starter.service --no-pager || true
     fi
+    
+    systemctl list-units --all "ff-*" || true
+    systemctl list-units --all "time-checker*" || true
+    systemctl --user -M "${USER_NAME}@" status ff-starter.service --no-pager || true
 }
 
 configure_ota() {
-    vars_to_sync=("TIMEGATE_API_URL" "TIMEGATE_BYPASS_SECRET")
+    vars_to_sync=("TIMEGATE_API_URL" "TIMEGATE_API_SECRET" "USER_NAME")
     for var_name in "${vars_to_sync[@]}"; do
         value="${!var_name}"
         if [[ -n "$value" && "$value" != "none" ]]; then
@@ -291,6 +291,7 @@ elif [ "$ACTION" == "ota" ]; then
     if [[ -f "$OTA_PENDING" ]]; then
         # shellcheck disable=SC1090
         source "$OTA_PENDING"
+
         configure_ota 2>&1 | tee -a "$LOG_FILE"
         git_pull "${BRANCH_NAME}" 2>&1 | tee -a "$LOG_FILE"
         install_files ota 2>&1 | tee -a "$LOG_FILE"

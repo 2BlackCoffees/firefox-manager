@@ -146,6 +146,48 @@
                 <hr class="divider">
 
                 <section class="widget-row glass">
+                    <h3>🔄 OTA UPDATE CONFIGURATION</h3>
+                    <div class="time-input-row" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px;">
+                        <div class="input-wrapper">
+                            <label class="mini-label">Git Branch Name</label>
+                            <input type="text" id="otaBranchName" value="main" placeholder="e.g., main">
+                        </div>
+                        <div style="display: flex; align-items: right; gap: 8px; padding: 4px 2px; margin-bottom: 5px;">
+                            <input type="checkbox" id="otaUpdateAllClients" style="cursor: pointer; width: 14px; height: 14px; accent-color: #00f0ff;">
+                            <label for="otaUpdateAllClients" style="font-size: 0.75rem; color: rgba(255, 255, 255, 0.8); cursor: pointer; user-select: none; letter-spacing: 0.3px;">
+                                UPDATE ALL CLIENTS
+                            </label>
+                        </div>
+                        <section class="widget-row glass">
+                            <h4 style="font-size: 0.75rem; margin: 0 0 10px 0; color: rgba(255, 255, 255, 0.6); letter-spacing: 0.5px; font-weight: 600;">
+                                ⚙️ ADVANCED SETTINGS
+                            </h4>
+                            
+                            <!-- Made layout tighter and shrank fonts/paddings -->
+                            <div class="time-input-row compact-row" style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;">
+                                
+                                <div class="input-wrapper" style="font-size: 0.8rem;">
+                                    <label class="mini-label" style="font-size: 0.65rem; color: rgba(255,255,255,0.4);">TIMEGATE API URL</label>
+                                    <input type="text" id="otaTimegateUrl" value="none" placeholder="https://timegate-psi.vercel.app/" 
+                                        style="font-size: 0.75rem; padding: 6px 8px; background: rgba(0,0,0,0.2); height: auto;">
+                                </div>
+                                
+                                <div class="input-wrapper" style="font-size: 0.8rem;">
+                                    <label class="mini-label" style="font-size: 0.65rem; color: rgba(255,255,255,0.4);">TIME GATE BYPASS SECRET</label>
+                                    <input type="password" id="otaBypassSecret" value="none" placeholder="Enter secret" 
+                                        style="font-size: 0.75rem; padding: 6px 8px; background: rgba(0,0,0,0.2); height: auto;">
+                                </div>
+
+                            </div>
+                        </section>
+
+                    </div>
+                    <button id="triggerOtaRequest" class="btn-cyan full-width">🚀 REQUEST OTA UPDATE</button>
+                </section>
+
+                <hr class="divider">
+
+                <section class="widget-row glass">
                     <h3>🚫 RESTRICT FIREFOX ACCESS</h3>
                     <div class="time-input-row" style="margin-bottom: 20px;">
                         <div class="input-wrapper">

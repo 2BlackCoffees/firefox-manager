@@ -61,8 +61,6 @@ register_device() {
     
     # Generate unique key based on MAC address
     local MAC_ADDR=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address)
-    
-    # Prompt for name if running interactively, otherwise use hostname
     local DEVICE_NAME=$(hostname)
 
     log "Registering $DEVICE_NAME ($MAC_ADDR) with backend..."
@@ -79,6 +77,34 @@ register_device() {
         log "Registration successful. ID stored: $REGISTERED_ID"
     else
         log "Registration failed. Will retry next loop."
+        return 1
+    fi
+}
+
+unregister_device() {
+    if [[ ! -n "$REGISTERED_ID" ]]; then
+        log "Device registered id is not existing cannot unregister!"
+        return 0
+    fi
+    log "Starting unregistration..."
+    
+    # Generate unique key based on MAC address
+    local MAC_ADDR=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address)
+
+    log "Unregistering $REGISTERED_ID ($MAC_ADDR) with backend..."
+    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -d \"{\"id\": \"$REGISTERED_ID\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/unregister\""
+    RESPONSE=$(curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TIMEGATE_API_SECRET" \
+        -d "{\"id\": \"$REGISTERED_ID\", \"unique_key\": \"$MAC_ADDR\"}" \
+        "$TIMEGATE_API_URL/api/unregister")
+
+    if [[ $? -eq 0 ]]; then
+        REGISTERED_ID=""
+        save_config
+        log "Unregistration successful. ID cleared REGISTERED_ID: $REGISTERED_ID"
+    else
+        log "Unregistration failed."
         return 1
     fi
 }
@@ -247,14 +273,17 @@ while true; do
                 # 4. Execute systemd-run
                 BRANCH_NAME=$(echo "$RESPONSE" | jq -r '.branch_name // "main"')
                 TIMEGATE_API_URL=$(echo "$RESPONSE" | jq -r '.timegate_api_url // "none"')
-                TIMEGATE_BYPASS_SECRET=$(echo "$RESPONSE" | jq -r '.timegate_bypass_secret // "none"')
+                TIMEGATE_API_SECRET=$(echo "$RESPONSE" | jq -r '.timegate_bypass_secret // "none"')
 
                 cat <<EOF > "$OTA_PENDING"
 BRANCH_NAME=$BRANCH_NAME
 TIMEGATE_API_URL=$TIMEGATE_API_URL
-TIMEGATE_BYPASS_SECRET=$TIMEGATE_BYPASS_SECRET
+TIMEGATE_API_SECRET=$TIMEGATE_API_SECRET
 EOF
 
+                if [ "$TIMEGATE_API_URL" != "none" ] && [ "$TIMEGATE_API_SECRET" != "none" ]; then
+                    unregister_device
+                fi
                 echo "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL"
                 systemd-run --unit=ff-ota-worker --collect /bin/bash "$REPO_PATH/scripts/install.sh" ota 
 

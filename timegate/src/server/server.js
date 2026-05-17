@@ -365,6 +365,74 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+app.post('/api/unregister', async (req, res) => {
+    // 1. Authorization Check
+    if (!isAuthorized(req)) {
+        return res.status(401).json({ error: 'Unauthorized API Key' });
+    }
+
+    // 2. Validate Request Body
+    if (!('id' in req.body) || !('unique_key' in req.body)) {
+        console.log('Invalid unregistration request (expecting id AND unique_key):', req.body);
+        return res.status(400).json({ error: "Missing id or unique_id, both are required identification fields" });
+    }
+
+    const client_id = req.body.id;
+    const unique_key = req.body.unique_key;
+    console.log('Received unregistration request:', req.body);
+
+    try {
+        // 3. Verify if the client actually exists before attempting deletion
+        let existingDevice;
+        if (client_id && unique_key) {
+            existingDevice = await pool.query('SELECT id FROM clients WHERE id = $1 AND unique_key = $2', [client_id, unique_key]);
+
+        }
+
+        if (existingDevice.rows.length === 0) {
+            return res.status(404).json({ error: "Client device not found" });
+        }
+
+        // Capture the definitive final ID for internal logs and setting deletions
+        const savedId = existingDevice.rows[0].id; 
+        console.log(`Proceeding with unregistration for client ID: ${savedId}`);
+
+        // 4. Execute deletion inside a transaction block
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Delete associated client settings first if foreign keys aren't set to CASCADE
+            await client.query(
+                'DELETE FROM global_settings WHERE client_id = $1',
+                [savedId]
+            );
+
+            // Delete the client entry
+            await client.query(
+                'DELETE FROM clients WHERE id = $1',
+                [savedId]
+            );
+            
+            await client.query('COMMIT');
+        } catch (transactionErr) {
+            await client.query('ROLLBACK');
+            throw transactionErr; // Bubble up to outer catch block
+        } finally {
+            client.release(); // Always release the client back to the pool
+        }
+
+        // 5. Post-deletion cleanup/sync
+        syncGlobalQuota(); // Recalculate global TTL allocation now that a device is removed
+
+        console.log('Client unregistered successfully. ID removed:', savedId);
+        res.status(200).json({ id: savedId, message: "Successfully unregistered" });
+
+    } catch (err) {
+        console.error('Unregistration error:', err);
+        res.status(500).json({ error: "Unregistration failed" });
+    }
+});
 // --- ADMIN ENDPOINTS (Global) ---
 
 app.post('/api/setup-password', async (req, res) => {
@@ -400,7 +468,7 @@ app.get('/api/clients', async (req, res) => {
 
 const redisAllowanceKey = (clientId) => `allowance:${clientId}`;
 
-const cacheAllowance = async (clientId, data) => {
+const setCacheAllowance = async (clientId, data) => {
     // Store as JSON string, set a reasonable expiry (e.g., 24h) 
     // to prevent orphaned data
     await redis.set(redisAllowanceKey(clientId), JSON.stringify(data), { ex: 86400 });
@@ -460,6 +528,57 @@ app.get('/api/poll', getClient, async (req, res) => {
     });
 });
 
+app.post('/api/otarequest', getClient, checkAuth, async (req, res) => {
+
+    console.log('Received OTA request with body:', req);
+    const { branch_name, timegate_api_url, timegate_bypass_secret, clients } = req.body;
+
+    if (!Array.isArray(clients) || clients.length === 0) {
+        return res.status(400).json({ error: 'Invalid or empty clients list provided' });
+    }
+
+    try {
+        // Fetch all authentic client IDs from database for cross-referencing
+        const dbClientsRes = await pool.query('SELECT id FROM clients');
+        const validClientIds = new Set(dbClientsRes.rows.map(c => c.id));
+
+        // Filter incoming list down to only valid registered nodes
+        const verifiedClients = clients.filter(clientId => validClientIds.has(clientId));
+
+        if (verifiedClients.length === 0) {
+            return res.status(404).json({ error: 'No provided clients matched valid fleet records' });
+        }
+
+        // 3. Prepare values for database insertion
+        const branch = branch_name || "main";
+        const timeGateAPIUrl = timegate_api_url || "none";
+        const bypassSecret = timegate_bypass_secret || "none";
+
+        // Batch update each verified client inside a single promise operation
+        // This can create a high load on DB and might need some refactoring for larger fleets (e.g., bulk insert or queuing), 
+        // but for now we assume this is manageable.
+        await Promise.all(verifiedClients.map(async (clientId) => {
+            const insertQuery = `
+                INSERT INTO allowances (client_id, status, branch_name, timegate_api_url, timegate_bypass_secret) 
+                VALUES ($1, 'ota', $2, $3, $4) 
+                RETURNING *`;
+            
+            const dbInsert = await pool.query(insertQuery, [clientId, branch, timeGateAPIUrl, bypassSecret]);
+            const savedAllowance = dbInsert.rows[0];
+
+            await setCacheAllowance(clientId, savedAllowance); 
+        }));
+
+        res.json({ 
+            success: true, 
+            message: `OTA target allowance set for clients ${verifiedClients.join(', ')}.` 
+        });
+
+    } catch (error) {
+        console.error("Error setting up server-side OTA requirements:", error);
+        res.status(500).json({ error: 'Internal Server Error processing request' });
+    }
+});
 
 app.post('/api/allow', getClient, checkAuth, async (req, res) => {
     const { sites, duration } = req.body;
@@ -485,7 +604,7 @@ app.post('/api/allow', getClient, checkAuth, async (req, res) => {
 
         // Update Cache after successful DB commit
         console.log("Updating cache for client", targetClientId, "with new allowance:", newRow);
-        await cacheAllowance(targetClientId, newRow);
+        await setCacheAllowance(targetClientId, newRow);
         
         res.json(newRow);
     } catch (error) {
@@ -504,7 +623,7 @@ app.post('/api/stop', getClient, checkAuth, async (req, res) => {
     const newRow = insertResult.rows[0];
 
     // Update Cache
-    await cacheAllowance(req.clientId, newRow);
+    await setCacheAllowance(req.clientId, newRow);
     res.json({ success: true });
 });
 
@@ -536,6 +655,7 @@ app.get('/api/settings/time', getClient, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 // Update global time settings (Protected)
 app.post('/api/settings/time', getClient, checkAuth, async (req, res) => {

@@ -24,6 +24,7 @@ const saveScheduledButton = document.getElementById('saveScheduleBtn');
 const openAccessTimeBtn = document.getElementById('openAccessTimeBtn');
 const timeAccessesModal = document.getElementById('timeAccessesModal');
 const updateFirefoxAccessTime = document.getElementById('updateFirefoxAccessTime');
+const triggerOtaRequest = document.getElementById('triggerOtaRequest');
 const timeAccessesModalCancel = document.getElementById('timeAccessesModalCancel');
 
 
@@ -195,9 +196,9 @@ function calculateDailyTotal(ranges) {
     let totalMinutes = 0;
     ranges.forEach(range => {
         const [start, end] = range.split('-');
-        const [sH, sM] = start.split(':').map(Number);
-        const [eH, eM] = end.split(':').map(Number);
-        totalMinutes += (eH * 60 + eM) - (sH * 60 + sM);
+        const [startHour, startMinute] = start.split(':').map(Number);
+        const [endHour, endMinute] = end.split(':').map(Number);
+        totalMinutes += (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
     });
     return (totalMinutes / 60).toFixed(1);
 }
@@ -267,7 +268,8 @@ function closeModal() {
 
 
 // --- Modal Logic ---
-function requestPassword(message = "ACCESS KEY REQUIRED") {
+function requestPassword(message) {
+    if(message === null ||message === undefined) message = "Enter the password";
     return new Promise((resolve) => {
         showModal("☯ " + message.toUpperCase());
 
@@ -311,8 +313,8 @@ function showAlert(type = 'info', title = 'SYSTEM MESSAGE', message = '') {
 }
 
 // --- Protected API ---
-async function secureApi(path, method, body, client = null) {
-    const key = await requestPassword();
+async function secureApi(path, method, body, client = null, requestPasswordMessage = null, handleResponse = true) {
+    const key = await requestPassword(requestPasswordMessage);
     if (!key) return;
 
     const url = `${API_URL}${path}`
@@ -331,13 +333,16 @@ async function secureApi(path, method, body, client = null) {
         body: JSON.stringify(body)
     });
 
-    if (res.status === 401) {
-        await showAlert('error', 'Security issue', "Invalid password used.");
-    } else if (res.ok) {
-        closeModal();
-        await showAlert('info', 'Action Successful', "Action completed successfully.");
-        loadHistory();
+    if(handleResponse) {
+        if (res.status === 401) {
+            await showAlert('error', 'Security issue', "Invalid password used.");
+        } else if (res.ok) {
+            closeModal();
+            await showAlert('info', 'Action Successful', "Action completed successfully.");
+            loadHistory();
+        }
     }
+    return res;
 }
 
 // --- Actions ---
@@ -400,6 +405,52 @@ openAccessTimeBtn.onclick = () => {
 };
 
 timeAccessesModalCancel.onclick = () => {
+    timeAccessesModal.style.display = 'none';
+};
+
+triggerOtaRequest.onclick = async () => {
+    const branchName = document.getElementById('otaBranchName').value.trim();
+    const timegateUrl = document.getElementById('otaTimegateUrl').value.trim();
+    const bypassSecret = document.getElementById('otaBypassSecret').value.trim();
+    const updateAllClients = document.getElementById('otaUpdateAllClients').checked;
+
+    const client = getClient();
+    if (!client) return;
+
+    let targetClients = [];
+    if (updateAllClients && typeof globalFleetStatus === 'object') {
+        targetClients = Object.keys(globalFleetStatus);
+    } else {
+        targetClients = [client];
+    }
+
+    // Safety check to ensure we have at least one client target
+    if (targetClients.length === 0) {
+        await showAlert('error', 'OTA Impossible', "No target clients found in the fleet status registry.");
+        return;
+    }
+
+    try {
+        const body = { 
+                branch_name: branchName || "main", 
+                timegate_api_url: timegateUrl || "none", 
+                timegate_bypass_secret: bypassSecret || "none",
+                clients: targetClients
+            }
+        const res = await secureApi('/otarequest', 'POST', body, client, "Password to authorize OTA request", false /*handleResponse*/);
+
+        if (res.ok) {
+            timeAccessesModal.style.display = 'none';
+            const scopeText = updateAllClients ? `dispatched to all ${targetClients.length} clients` : `dispatched to ${targetClients[0]}`;
+            await showAlert('info', 'OTA Triggered', `OTA request ${scopeText} successfully.`);
+        } else {
+            await showAlert('error', 'OTA Failed', "Unauthorized access or invalid configuration.");
+        }
+    } catch (error) {
+        console.error("OTA Request Failed:", error);
+        await showAlert('error', 'Connection Error', "Failed to reach the configuration server.");
+    }
+    
     timeAccessesModal.style.display = 'none';
 };
 
@@ -624,7 +675,7 @@ window.deleteTarget = async (id, name) => {
     });
 
     if (res.ok) {
-        await showAlert('info', 'Target Neutralized', `${name} has been removed.`);
+        await showAlert('info', 'Target Decommissioned', `${name} has been removed.`);
         loadTargets(true);
     } else {
         await showAlert('error', 'Action Failed', "Unauthorized access.");
