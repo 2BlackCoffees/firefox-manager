@@ -275,14 +275,21 @@ while true; do
                 TIMEGATE_API_URL=$(echo "$RESPONSE" | jq -r '.timegate_api_url // "none"')
                 TIMEGATE_API_SECRET=$(echo "$RESPONSE" | jq -r '.timegate_bypass_secret // "none"')
 
-                cat <<EOF > "$OTA_PENDING"
-BRANCH_NAME=$BRANCH_NAME
-TIMEGATE_API_URL=$TIMEGATE_API_URL
-TIMEGATE_API_SECRET=$TIMEGATE_API_SECRET
-EOF
+
 
                 if [ "$TIMEGATE_API_URL" != "none" ] && [ "$TIMEGATE_API_SECRET" != "none" ]; then
                     unregister_device
+                cat <<EOF > "$OTA_PENDING"
+BRANCH_NAME=$BRANCH_NAME
+USER_NAME=$USER_NAME
+TIMEGATE_API_URL=$TIMEGATE_API_URL
+TIMEGATE_API_SECRET=$TIMEGATE_API_SECRET
+EOF
+                else
+                cat <<EOF > "$OTA_PENDING"
+BRANCH_NAME=$BRANCH_NAME
+USER_NAME=$USER_NAME
+EOF
                 fi
                 echo "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL"
                 systemd-run --unit=ff-ota-worker --collect /bin/bash "$REPO_PATH/scripts/install.sh" ota 
