@@ -86,6 +86,9 @@ Use the generated password to update the file `misc/config-mail.ini`: Can be cre
 The installation script will configure system dependencies and lock down XFCE power settings.
 
 **Execute the following commands in your terminal:**
+Before running the script, note that if you want to open the port 22 to be able to access your machine remotely, you need to explicitely set the environment variable `OPEN_SSH` as follows:
+`export OPEN_SSH=1`.
+
 ```bash
 chmod +x scripts/install.sh
 ./scripts/install.sh run

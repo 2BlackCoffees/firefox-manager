@@ -74,11 +74,15 @@ run_command_as_user() {
 }
 
 preinstall() {
-    apt update && apt install openssh-server fswebcam pulseaudio-utils -y
-    systemctl enable --now ssh
-    ufw allow ssh
-    ufw --force enable
-    ufw status
+    apt update && apt install fswebcam pulseaudio-utils -y
+    if [[ $OPEN_SSH == "1" ]]; then
+        apt install openssh-server -y
+        systemctl enable --now ssh
+        ufw allow ssh
+        ufw --force enable
+        ufw status
+    fi
+
     
     # Target the specified user instead of root ($USER)
     usermod -aG video "$USER_NAME"
