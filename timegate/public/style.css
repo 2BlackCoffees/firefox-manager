@@ -11,8 +11,8 @@
     --red-light: #be133b25;
     --red-dark: #b2002f;
     --gray: #d5d1d5; 
-    --bg-dark: #050505;
-    --glass: rgba(10, 10, 10, 0.6);
+    /* --bg-dark: #050505; */
+    /* --glass: rgba(10, 10, 10, 0.6); */
     --border: rgba(27, 150, 211, 0.15);
 }
 
@@ -189,6 +189,8 @@ input[type="text"],
 input[type="number"],
 input[type="password"],
 input[type="time"],
+.settings-card input[type="text"],
+.settings-card input[type="password"]
 #newSiteName,
 #newSiteAddress {
     background: rgba(0, 0, 0, 0.15); /* Semi-transparent black */
@@ -216,7 +218,6 @@ input[readonly].readonly-input {
 }
 
 
-/* Below is a fix for Vercel*/
 #app #newSiteName, 
 #app #newSiteAddress,
 .settings-card #newSiteName,
