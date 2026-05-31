@@ -460,6 +460,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     input[type="number"]:hover,
     input[type="password"]:hover,
     input[type="time"]:hover,
+    #app #otaBranchName:hover,
+    #app #otaTimegateUrl:hover,
+    .settings-card #otaBranchName:hover,
+    .settings-card #otaTimegateUrl:hover,
     #newSiteName:hover,
     #newSiteAddress:hover {
         filter: brightness(1.2);
