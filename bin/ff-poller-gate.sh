@@ -252,11 +252,9 @@ while true; do
             elif [[ "$STATUS" == "ota" ]]; then
                 log "OTA update requested. Detaching update process..."
 
-                # Run the installer in a separate, transient systemd unit
-                # --collect ensures the transient unit is cleaned up after it finishes
                 # 1. Check if .env exists
                 if [ ! -f "$DOT_ENV" ]; then
-                    echo "Error: $DOT_ENV not found."
+                    echo "Error: $DOT_ENV not found: OTA update aborted"
                     exit 1
                 fi
 
@@ -266,7 +264,7 @@ while true; do
 
                 # 3. Validate the path isn't empty
                 if [ -z "$REPO_PATH" ]; then
-                    echo "Error: GIT_REPO_PATH is not defined in $DOT_ENV"
+                    echo "Error: GIT_REPO_PATH is not defined in $DOT_ENV: OTA update aborted"
                     exit 1
                 fi
 
@@ -274,8 +272,6 @@ while true; do
                 BRANCH_NAME=$(echo "$RESPONSE" | jq -r '.branch_name // "main"')
                 TIMEGATE_API_URL=$(echo "$RESPONSE" | jq -r '.timegate_api_url // "none"')
                 TIMEGATE_API_SECRET=$(echo "$RESPONSE" | jq -r '.timegate_bypass_secret // "none"')
-
-
 
                 if [ "$TIMEGATE_API_URL" != "none" ] && [ "$TIMEGATE_API_SECRET" != "none" ]; then
                     unregister_device
@@ -291,6 +287,8 @@ BRANCH_NAME=$BRANCH_NAME
 USER_NAME=$USER_NAME
 EOF
                 fi
+                # Run the installer in a separate, transient systemd unit
+                # --collect ensures the transient unit is cleaned up after it finishes
                 echo "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL"
                 systemd-run --unit=ff-ota-worker --collect /bin/bash "$REPO_PATH/scripts/install.sh" ota 
 
