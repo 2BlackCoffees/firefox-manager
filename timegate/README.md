@@ -168,6 +168,6 @@ To stay 100% free while using **Upstash Redis** (10k request limit) and **Neon P
 7.  **Write-Through Caching:** Configuration changes (like a new schedule) are written to Neon once and cached in Redis for fast, cost-free retrieval.
 
 # Next steps
-1. Implement an OTA of the deivce part
+1. Implement an OTA of the deivce part based on github
 2. Implement some monitoring / Alerting
 3. Refatcor to hexagonal pattern

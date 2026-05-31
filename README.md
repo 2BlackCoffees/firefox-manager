@@ -60,8 +60,7 @@ Install:
 
 If you intend to control Firefox remotely via the cloud application, you must configure your environment variables first.
 
-1. Navigate to the `firefox-manager/bin/` directory.
-2. Create or modify the `.env` file with your specific API credentials:
+Create or modify the `firefox-manager/bin/.env` file with your specific API credentials:
 
 ```bash
 # Sensitive API Info
