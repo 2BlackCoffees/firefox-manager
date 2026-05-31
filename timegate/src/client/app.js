@@ -40,7 +40,8 @@ async function loadAll() {
     await Promise.all([
         loadGlobalSettings(),
         loadHistory(),
-        loadSchedule()
+        loadSchedule(),
+        refreshSingleStatus()
     ]);
 }
 // --- CLIENT CONTEXT MANAGEMENT ---
@@ -151,7 +152,9 @@ async function refreshFullFleetLabels() {
         const res = await fetch(`${API_URL}/clients/status-all`, { headers: getHeaders(null, null) });
         globalFleetStatus = await res.json();
         renderClientDropdown(clientSelector.value, globalFleetStatus);
-    } catch (e) { console.error("Fleet sync failed", e); }
+    } catch (e) { 
+        console.error("Fleet sync failed", e);
+    }
 }
 
 function renderClientDropdown(selectedId, fleetStatus = {}) {
