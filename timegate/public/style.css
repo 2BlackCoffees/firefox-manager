@@ -189,8 +189,10 @@ input[type="text"],
 input[type="number"],
 input[type="password"],
 input[type="time"],
-.settings-card input[type="text"],
-.settings-card input[type="password"]
+#app #otaBranchName,
+#app #otaTimegateUrl,
+.settings-card #otaBranchName,
+.settings-card #otaTimegateUrl,
 #newSiteName,
 #newSiteAddress {
     background: rgba(0, 0, 0, 0.15); /* Semi-transparent black */
