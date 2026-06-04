@@ -127,7 +127,7 @@ uninstall_all() {
 git_pull() {
     local branch_name=${1:-main}
     echo "Pulling latest changes from git repository (branch: $branch_name)..."
-    git -C "$SCRIPT_DIR/.." pull origin "$branch_name"
+    sudo -u "$USER_NAME" bash -c "git -C \"$SCRIPT_DIR/..\" pull origin \"$branch_name\""
 }
 
 log() { 
@@ -281,7 +281,7 @@ if [ ! -f "$LOCAL_MAIL_CONFIG" ] && [ "$ACTION" == "run" ]; then
 fi
 
 cd "$SCRIPT_DIR"
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+REPO_ROOT=$(sudo -u "$USER_NAME" bash -c "git rev-parse --show-toplevel" 2>/dev/null)
 if [ -n "$REPO_ROOT" ]; then
     update_var_in_file "$LOCAL_DOT_ENV" "GIT_REPO_PATH=$REPO_ROOT"
     update_var_in_file "$LOCAL_DOT_ENV" "USER_NAME=$USER_NAME"
@@ -301,7 +301,7 @@ elif [ "$ACTION" == "update" ]; then
     install_files
 elif [ "$ACTION" == "ota" ]; then
     if [ ! -n "$REPO_ROOT" ]; then
-        echo "Error: Not currently in a Git repository: OTA will not work!"
+        echo "Error: Not currently in a Git repository: OTA will not work!" >&2
         exit 1
     fi
 
@@ -319,3 +319,4 @@ elif [ "$ACTION" == "ota" ]; then
 elif [ "$ACTION" == "uninstall" ]; then
     uninstall_all
 fi
+exit 0
