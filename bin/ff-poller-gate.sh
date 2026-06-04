@@ -294,7 +294,8 @@ EOF
                 # Run the installer in a separate, transient systemd unit
                 # --collect ensures the transient unit is cleaned up after it finishes
                 log "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL: File content of $OTA_PENDING: $(cat $OTA_PENDING)"
-                systemd-run --unit=ff-ota-worker --collect /bin/bash "$REPO_PATH/scripts/install.sh" ota $USER_NAME > $LOG_FILE 2>&1
+                systemd-run --unit=ff-ota-worker --collect /bin/bash -x "$REPO_PATH/scripts/install.sh" ota $USER_NAME > $LOG_FILE 2>&1
+                log "Started systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL: File content of $OTA_PENDING: $(cat $OTA_PENDING)"
                 log "Analyze logs with: journalctl -u ff-ota-worker.service -f"
 
                 log "Update handoff complete. This service will now be restarted by the updater."
