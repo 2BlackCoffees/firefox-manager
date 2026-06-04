@@ -141,7 +141,9 @@ update_var_in_file() {
         key=$(echo "$kv" | cut -d= -f1)
         value=$(echo "$kv" | cut -d= -f2-)
         if grep -q "^$key=" "$target_file"; then
-            sed -i "s|^$key=.*|$key=\"$value\"|" "$target_file"
+            grep -v "^$key=" "$target_file" > "$target_file.tmp" || true
+            echo "$key=\"$value\"" >> "$target_file.tmp"
+            mv "$target_file.tmp" "$target_file"
         else
             echo "$key=\"$value\"" >> "$target_file"
         fi
@@ -155,7 +157,11 @@ install_files() {
     apt update && apt install -y jq curl
 
     if [ ! -f "$LOCAL_DOT_ENV" ]; then
-        echo "Warning: $LOCAL_DOT_ENV file not found, please read the README.md file to learn how to set it up: No connection to the beackend will be possible."
+        echo "Warning: $LOCAL_DOT_ENV file not found, please read the README.md file to learn how to set it up: No connection to the backend will be possible."
+    else
+        cp "$LOCAL_DOT_ENV" "$DOT_ENV"
+        chown root:root "$DOT_ENV"
+        chmod 600 "$DOT_ENV"
     fi
 
     # Target the corrected user config path, not root's home directory
@@ -173,21 +179,20 @@ install_files() {
     cp "$SCRIPT_DIR/../bin/ff-poller-gate.sh" /usr/local/bin/ff-poller-gate.sh
     cp "$SCRIPT_DIR/../bin/time-checker-shutdown.py" /usr/local/bin/time-checker-shutdown.py
     
-    cp "$LOCAL_DOT_ENV" "$DOT_ENV"
     [ -f "$LOCAL_MAIL_CONFIG" ] && cp "$LOCAL_MAIL_CONFIG" "$MAIL_CONFIG"    
     cp "$SCRIPT_DIR/../misc/config-time-shutdown.conf" "$CONFIG_TIME_SHUTDOWN"
     
     cp "$SCRIPT_DIR/../services/time-checker.service" /etc/systemd/system/time-checker.service
     cp "$SCRIPT_DIR/../services/ff-poller-gate.service" /etc/systemd/system/ff-poller-gate.service
     cp "$SCRIPT_DIR/../services/ff-killer.service" /etc/systemd/system/ff-killer.service
-    cp "$SCRIPT_DIR/../services/ff-limiter@.service" /etc/systemd/system/ff-limiter@.service
+    sed "s|/home/<user>|$USER_HOME|g" "$SCRIPT_DIR/../services/ff-limiter@.service" > /etc/systemd/system/ff-limiter@.service
     cp "$SCRIPT_DIR/../misc/firefox_permanent_sites.txt" "$FIREFOX_PERMANENT_FILES"
     
-    chown root:root "$FIREFOX_PERMANENT_FILES" "$DOT_ENV" "$CONFIG_TIME_SHUTDOWN"
+    chown root:root "$FIREFOX_PERMANENT_FILES" "$CONFIG_TIME_SHUTDOWN"
     [ -f "$MAIL_CONFIG" ] && chown root:root "$MAIL_CONFIG"
     
     chmod 644 "$FIREFOX_PERMANENT_FILES"
-    chmod 600 "$DOT_ENV" "$CONFIG_TIME_SHUTDOWN"
+    chmod 600 "$CONFIG_TIME_SHUTDOWN"
     [ -f "$MAIL_CONFIG" ] && chmod 600 "$MAIL_CONFIG"
 
     chmod +x /usr/local/bin/ff-*.sh
@@ -232,7 +237,7 @@ configure_ota() {
 next_steps() {
     echo "Installation complete!"
         echo "Next steps in case you want to access from a remote computer on a local network:"
-    paplay /usr/share/sounds/freedesktop/stereo/complete.oga || true
+    run_command_as_user paplay /usr/share/sounds/freedesktop/stereo/complete.oga || true
     echo "On this computer:"
     echo "echo \"source $SCRIPT_DIR/alias.sh\" >> $USER_HOME/.bashrc"
     echo "In /etc/lightdm/lightdm.conf"
@@ -248,10 +253,12 @@ next_steps() {
 }
 
 test_services() {
-    paplay /usr/share/sounds/freedesktop/stereo/complete.oga || true
-    pactl set-sink-volume @DEFAULT_SINK@ +5% || true
+    run_command_as_user paplay /usr/share/sounds/freedesktop/stereo/complete.oga || true
+    run_command_as_user pactl set-sink-volume @DEFAULT_SINK@ +5% || true
 
-    systemctl start ff-limiter@2 youtube.com
+    systemctl set-environment SITES_TO_UNLOCK="youtube.com"
+    systemctl start ff-limiter@2
+
     tail -n 60 /var/log/firefox_usage.log 2>/dev/null || true
 }
 
@@ -270,7 +277,6 @@ if [ ! -f "$LOCAL_MAIL_CONFIG" ] && [ "$ACTION" == "run" ]; then
     echo "  RECIPIENT_EMAIL=\"your_email@example.com\"" >&2
     echo "  SENDER_PASSWORD=\"your_mail_app_password\"" >&2
     echo "=========================================================================" >&2
-    echo "" >&2
 fi
 
 
@@ -292,6 +298,7 @@ if [ "$ACTION" == "run" ]; then
 elif [ "$ACTION" == "update" ]; then
     install_files
 elif [ "$ACTION" == "ota" ]; then
+
     log "Starting OTA update process..."
     if [[ -f "$OTA_PENDING" ]]; then
         # shellcheck disable=SC1090
