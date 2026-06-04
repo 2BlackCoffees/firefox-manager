@@ -283,6 +283,7 @@ fi
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -n "$REPO_ROOT" ]; then
     update_var_in_file "$LOCAL_DOT_ENV" "GIT_REPO_PATH=$REPO_ROOT"
+    update_var_in_file "$LOCAL_DOT_ENV" "USER_NAME=$USER_NAME"
     echo "Git repository detected at: $REPO_ROOT, GIT_REPO_PATH variable updated in $LOCAL_DOT_ENV"
 
 else
