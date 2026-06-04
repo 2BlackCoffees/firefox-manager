@@ -1,7 +1,8 @@
 #!/bin/bash
+LOG_FILE="/var/log/ff-poller-gate.log"
 log() {
     local message=$1
-    echo "[$(date +"%Y-%m-%d %H:%M:%S")] $message" >> "/var/log/ff-poller-gate.log"
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] $message" >> $LOG_FILE
 }
 LOCAL_DOT_ENV=".env"
 DOT_ENV="/usr/local/bin/.env"
@@ -133,8 +134,8 @@ sync_power_on_schedule() {
 
         # NEW DATA FOUND: Overwrite the whole file with new photo status and new schedule
         {
-            echo "send_photo: $NEW_PHOTO_STATUS"
-            echo "registered_id: $REGISTERED_ID"
+            log "send_photo: $NEW_PHOTO_STATUS"
+            log "registered_id: $REGISTERED_ID"
             echo "$RESPONSE" | jq -r '
                 .days | to_entries | 
                 map(select(.value | length > 0)) | 
@@ -254,7 +255,7 @@ while true; do
 
                 # 1. Check if .env exists
                 if [ ! -f "$DOT_ENV" ]; then
-                    echo "Error: $DOT_ENV not found: OTA update aborted"
+                    log "Error: $DOT_ENV not found: OTA update aborted"
                     exit 1
                 fi
 
@@ -264,7 +265,7 @@ while true; do
 
                 # 3. Validate the path isn't empty
                 if [ -z "$REPO_PATH" ]; then
-                    echo "Error: GIT_REPO_PATH is not defined in $DOT_ENV: OTA update aborted"
+                    log "Error: GIT_REPO_PATH is not defined in $DOT_ENV: OTA update aborted"
                     exit 1
                 fi
 
@@ -289,8 +290,9 @@ EOF
                 fi
                 # Run the installer in a separate, transient systemd unit
                 # --collect ensures the transient unit is cleaned up after it finishes
-                echo "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL"
-                systemd-run --unit=ff-ota-worker --collect /bin/bash "$REPO_PATH/scripts/install.sh" ota 
+                log "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL: File content of $OTA_PENDING: $(cat $OTA_PENDING)"
+                systemd-run --unit=ff-ota-worker --collect /bin/bash "$REPO_PATH/scripts/install.sh" ota $USER_NAME > $LOG_FILE 2>&1
+                log "Analyze logs with: journalctl -u ff-ota-worker.service -f"
 
                 log "Update handoff complete. This service will now be restarted by the updater."
                 # We don't remove the flag here; the installer or the recovery script will.
