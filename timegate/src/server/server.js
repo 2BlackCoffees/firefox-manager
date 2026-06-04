@@ -311,6 +311,7 @@ app.post('/api/register', async (req, res) => {
     console.log(req.body, 'Received registration request with suggested ID and unique key:', suggested_client_id, unique_key);
     if (!suggested_client_id || !unique_key) return res.status(400).json({ error: "Missing suggested ID or Unique Key" });
 
+    const client = await pool.connect();
     try {
         // 1. Check if this specific device is already registered
         const existingDevice = await pool.query('SELECT id FROM clients WHERE unique_key = $1', [unique_key]);
@@ -336,7 +337,6 @@ app.post('/api/register', async (req, res) => {
         }
         console.log('Suggested name changed to', finalId, 'after checking for conflicts. Proceeding with registration.');
 
-        const client = await pool.connect();
         await client.query('BEGIN');
 
             // 1. Register the new client
@@ -362,6 +362,8 @@ app.post('/api/register', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Registration failed" });
+    } finally {
+        client.release();
     }
 });
 
@@ -381,6 +383,7 @@ app.post('/api/unregister', async (req, res) => {
     const unique_key = req.body.unique_key;
     console.log('Received unregistration request:', req.body);
 
+    const client = await pool.connect();
     try {
         // 3. Verify if the client actually exists before attempting deletion
         let existingDevice;
@@ -398,7 +401,6 @@ app.post('/api/unregister', async (req, res) => {
         console.log(`Proceeding with unregistration for client ID: ${savedId}`);
 
         // 4. Execute deletion inside a transaction block
-        const client = await pool.connect();
         try {
             await client.query('BEGIN');
 
@@ -431,6 +433,8 @@ app.post('/api/unregister', async (req, res) => {
     } catch (err) {
         console.error('Unregistration error:', err);
         res.status(500).json({ error: "Unregistration failed" });
+    } finally {
+        client.release(); // Always release the client back to the pool
     }
 });
 // --- ADMIN ENDPOINTS (Global) ---
