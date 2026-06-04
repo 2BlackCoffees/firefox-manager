@@ -1,7 +1,7 @@
 #!/bin/bash
 BELL_SEMAPHORE=/tmp/firefox_bell.lock
-# Log to a user-accessible location
-LOG_FILE=$HOME/ff-bell.log
+LOG_FILE=/var/log/ff-bell.log
+SOUND_FILE=/usr/share/sounds/freedesktop/stereo/message.oga
 
 
 log() {
