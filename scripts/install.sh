@@ -19,6 +19,7 @@ fi
 ACTION=$1
 USER_NAME=$2
 
+
 # Validate the action argument
 case "$ACTION" in
   run|update|ota|uninstall)
@@ -51,7 +52,7 @@ else
   echo "Warning: Could not find an active graphical session for $USER_NAME. Xfconf tweaks will fail." >&2
 fi
 
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 echo "=== Installation & Management System ==="
 echo ""
@@ -279,7 +280,7 @@ if [ ! -f "$LOCAL_MAIL_CONFIG" ] && [ "$ACTION" == "run" ]; then
     echo "=========================================================================" >&2
 fi
 
-
+cd "$SCRIPT_DIR"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -n "$REPO_ROOT" ]; then
     update_var_in_file "$LOCAL_DOT_ENV" "GIT_REPO_PATH=$REPO_ROOT"
@@ -299,6 +300,10 @@ if [ "$ACTION" == "run" ]; then
 elif [ "$ACTION" == "update" ]; then
     install_files
 elif [ "$ACTION" == "ota" ]; then
+    if [ ! -n "$REPO_ROOT" ]; then
+        echo "Error: Not currently in a Git repository: OTA will not work!"
+        exit 1
+    fi
 
     log "Starting OTA update process..."
     if [[ -f "$OTA_PENDING" ]]; then
