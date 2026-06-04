@@ -274,16 +274,19 @@ while true; do
                 TIMEGATE_API_URL=$(echo "$RESPONSE" | jq -r '.timegate_api_url // "none"')
                 TIMEGATE_API_SECRET=$(echo "$RESPONSE" | jq -r '.timegate_bypass_secret // "none"')
 
-                if [ "$TIMEGATE_API_URL" != "none" ] && [ "$TIMEGATE_API_SECRET" != "none" ]; then
+                if [[ -n "$TIMEGATE_API_URL" && "$TIMEGATE_API_URL" != "none" ]] && \
+                   [[ -n "$TIMEGATE_API_SECRET" && "$TIMEGATE_API_SECRET" != "none" ]]; then
+                    log "TIMEGATE_API_URL ($TIMEGATE_API_URL) and TIMEGATE_API_SECRET ($TIMEGATE_API_SECRET) are set. Unregistering device, setting to new backend and updating Linux code."
                     unregister_device
-                cat <<EOF > "$OTA_PENDING"
+                    cat <<EOF > "$OTA_PENDING"
 BRANCH_NAME=$BRANCH_NAME
 USER_NAME=$USER_NAME
 TIMEGATE_API_URL=$TIMEGATE_API_URL
 TIMEGATE_API_SECRET=$TIMEGATE_API_SECRET
 EOF
                 else
-                cat <<EOF > "$OTA_PENDING"
+                    log "TIMEGATE_API_URL ($TIMEGATE_API_URL) and TIMEGATE_API_SECRET ($TIMEGATE_API_SECRET) are not set. Considering this an update of the Linux code without reregistering device."
+                    cat <<EOF > "$OTA_PENDING"
 BRANCH_NAME=$BRANCH_NAME
 USER_NAME=$USER_NAME
 EOF
