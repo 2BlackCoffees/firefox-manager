@@ -582,7 +582,7 @@ app.get('/api/poll', getClient, async (req, res) => {
         [req.clientId, allowance.id, allowance.sites, allowance.duration_minutes, new_status.toUpperCase()]
     );
 
-    return_json = {
+    const return_json = {
         status: allowance.status,
         client: req.clientId, 
     }
