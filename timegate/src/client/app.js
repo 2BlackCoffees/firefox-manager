@@ -417,6 +417,12 @@ triggerOtaRequest.onclick = async () => {
     const bypassSecret = document.getElementById('otaBypassSecret').value.trim();
     const updateAllClients = document.getElementById('otaUpdateAllClients').checked;
 
+    const branchRegex = /^[a-zA-Z0-9_\-\/]+$/;
+    if (branchName && !branchRegex.test(branchName)) {
+        showAlert('error', 'Invalid Branch Name', `Branch name \"${branchName}\" can only contain letters, numbers, hyphens, underscores, and forward slashes.`);
+        return;
+    }
+
     const client = getClient();
     if (!client) return;
 
@@ -429,7 +435,7 @@ triggerOtaRequest.onclick = async () => {
 
     // Safety check to ensure we have at least one client target
     if (targetClients.length === 0) {
-        await showAlert('error', 'OTA Impossible', "No target clients found in the fleet status registry.");
+        showAlert('error', 'OTA Impossible', "No target clients found in the fleet status registry.");
         return;
     }
 
@@ -445,13 +451,13 @@ triggerOtaRequest.onclick = async () => {
         if (res.ok) {
             timeAccessesModal.style.display = 'none';
             const scopeText = updateAllClients ? `dispatched to all ${targetClients.length} clients` : `dispatched to ${targetClients[0]}`;
-            await showAlert('info', 'OTA Triggered', `OTA request ${scopeText} successfully.`);
+            showAlert('info', 'OTA Triggered', `OTA request ${scopeText} successfully.`);
         } else {
-            await showAlert('error', 'OTA Failed', "Unauthorized access or invalid configuration.");
+            showAlert('error', 'OTA Failed', "Unauthorized access or invalid configuration.");
         }
     } catch (error) {
         console.error("OTA Request Failed:", error);
-        await showAlert('error', 'Connection Error', "Failed to reach the configuration server.");
+        showAlert('error', 'Connection Error', "Failed to reach the configuration server.");
     }
     
     timeAccessesModal.style.display = 'none';
