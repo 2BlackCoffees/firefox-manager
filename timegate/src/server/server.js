@@ -185,11 +185,58 @@ app.get('/api/auth-status', async (req, res) => {
 
 // --- REGISTRATION LOGIC ---
 
-function calculateActiveMinutes(schedule) {
+function calculateWeeklyActiveMinutes(schedule) {
     let totalActiveMinutesAcrossAllDevices = 0;
 
     console.log("Calculating active minutes for the week from schedule:", schedule);
-    Object.values(schedule).forEach(dayWindows => {
+
+    // Normalize schedule to a flat map of day -> array of window strings
+    const dayIntervalsMap = {
+        '0': [],
+        '1': [],
+        '2': [],
+        '3': [],
+        '4': [],
+        '5': [],
+        '6': []
+    };
+
+    if (schedule && typeof schedule === 'object') {
+        if (schedule.days) {
+            if (Array.isArray(schedule.days)) {
+                // Case: schedule.days is an array of client schedule objects
+                schedule.days.forEach(clientDaySched => {
+                    if (clientDaySched && typeof clientDaySched === 'object') {
+                        for (let i = 0; i <= 6; i++) {
+                            const dayKey = String(i);
+                            if (Array.isArray(clientDaySched[dayKey])) {
+                                dayIntervalsMap[dayKey] = dayIntervalsMap[dayKey].concat(clientDaySched[dayKey]);
+                            }
+                        }
+                    }
+                });
+            } else if (typeof schedule.days === 'object') {
+                // Case: schedule.days is a single client's schedule object
+                for (let i = 0; i <= 6; i++) {
+                    const dayKey = String(i);
+                    if (Array.isArray(schedule.days[dayKey])) {
+                        dayIntervalsMap[dayKey] = dayIntervalsMap[dayKey].concat(schedule.days[dayKey]);
+                    }
+                }
+            }
+        } else {
+            // Case: schedule is a flat object (like { '0': [...], ... })
+            for (let i = 0; i <= 6; i++) {
+                const dayKey = String(i);
+                if (Array.isArray(schedule[dayKey])) {
+                    dayIntervalsMap[dayKey] = dayIntervalsMap[dayKey].concat(schedule[dayKey]);
+                }
+            }
+        }
+    }
+
+    // Now calculate active minutes from dayIntervalsMap
+    Object.entries(dayIntervalsMap).forEach(([dayKey, dayWindows]) => {
         if (!dayWindows || dayWindows.length === 0) {
             return;
         }
@@ -214,7 +261,7 @@ function calculateActiveMinutes(schedule) {
 
        
         if (intervals.length === 0) {
-            console.log("No valid intervals for this day, skipping.", intervals);
+            console.log(`No valid intervals for day ${dayKey}, skipping:`, intervals);
             return;
         }
 
@@ -235,7 +282,7 @@ function calculateActiveMinutes(schedule) {
             }
         }
         merged.push(current);
-        console.log("Merged intervals for the day:", merged);
+        console.log(`Merged intervals for day ${dayKey}:`, merged);
 
         // 3. Sum the unique duration of merged blocks
         merged.forEach(interval => {
@@ -256,18 +303,30 @@ async function calculateDynamicTTL() {
     const result = await pool.query("SELECT value FROM settings WHERE key = 'power_on_schedule'");
     
     const combinedSchedules = result.rows.reduce((acc, row) => {
-        const schedule = JSON.parse(row.value);
-        
-        Object.entries(schedule).forEach(([day, windows]) => {
-            if (!acc[day]) acc[day] = [];
-            // Use concat to keep ALL windows from ALL clients for that day
-            acc[day] = acc[day].concat(windows);
-        });
+        try {
+            const schedule = JSON.parse(row.value);
+            
+            // Extract the schedule days object depending on new/old schema format
+            const daysObj = (schedule && schedule.days && typeof schedule.days === 'object' && !Array.isArray(schedule.days))
+                ? schedule.days
+                : schedule;
+
+            Object.entries(daysObj).forEach(([day, windows]) => {
+                // Ignore non-day keys if there are any
+                if (isNaN(day) || parseInt(day) < 0 || parseInt(day) > 6) return;
+
+                if (!acc[day]) acc[day] = [];
+                // Use concat to keep ALL windows from ALL clients for that day
+                acc[day] = acc[day].concat(windows);
+            });
+        } catch (e) {
+            console.error("Error parsing schedule row:", row, e);
+        }
         
         return acc;
     }, {});
     console.log('Combined Schedules from all clients:', combinedSchedules);
-    let totalActiveMinutesAcrossAllDevices = calculateActiveMinutes(combinedSchedules);
+    let totalActiveMinutesAcrossAllDevices = calculateWeeklyActiveMinutes(combinedSchedules);
     console.log('Total Active Minutes Across All Devices Per Week:', totalActiveMinutesAcrossAllDevices);
     
     // Convert total active minutes per week to average daily requests
