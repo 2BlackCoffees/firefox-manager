@@ -270,7 +270,7 @@ while true; do
                 fi
 
                 # 4. Execute systemd-run
-                BRANCH_NAME=$(echo "$RESPONSE" | jq -r '.branch_name // "main"')
+                BRANCH_LABEL_NAME=$(echo "$RESPONSE" | jq -r '.branch_label_name // "main"')
                 TIMEGATE_API_URL=$(echo "$RESPONSE" | jq -r '.timegate_api_url // "none"')
                 TIMEGATE_API_SECRET=$(echo "$RESPONSE" | jq -r '.timegate_bypass_secret // "none"')
 
@@ -279,7 +279,7 @@ while true; do
                     log "TIMEGATE_API_URL ($TIMEGATE_API_URL) and TIMEGATE_API_SECRET ($TIMEGATE_API_SECRET) are set. Unregistering device, setting to new backend and updating Linux code."
                     unregister_device
                     cat <<EOF > "$OTA_PENDING"
-BRANCH_NAME=$BRANCH_NAME
+BRANCH_LABEL_NAME=$BRANCH_LABEL_NAME
 USER_NAME=$USER_NAME
 TIMEGATE_API_URL=$TIMEGATE_API_URL
 TIMEGATE_API_SECRET=$TIMEGATE_API_SECRET
@@ -287,15 +287,15 @@ EOF
                 else
                     log "TIMEGATE_API_URL ($TIMEGATE_API_URL) and TIMEGATE_API_SECRET ($TIMEGATE_API_SECRET) are not set. Considering this an update of the Linux code without reregistering device."
                     cat <<EOF > "$OTA_PENDING"
-BRANCH_NAME=$BRANCH_NAME
+BRANCH_LABEL_NAME=$BRANCH_LABEL_NAME
 USER_NAME=$USER_NAME
 EOF
                 fi
                 # Run the installer in a separate, transient systemd unit
                 # --collect ensures the transient unit is cleaned up after it finishes
-                log "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL: File content of $OTA_PENDING: $(cat $OTA_PENDING)"
+                log "Starting systemd-run with path: $REPO_PATH and branch: $BRANCH_LABEL_NAME and API URL: $TIMEGATE_API_URL: File content of $OTA_PENDING: $(cat $OTA_PENDING)"
                 systemd-run --unit=ff-ota-worker --collect /bin/bash -x "$REPO_PATH/scripts/install.sh" ota $USER_NAME > $LOG_FILE 2>&1
-                log "Started systemd-run with path: $REPO_PATH and branch: $BRANCH_NAME and API URL: $TIMEGATE_API_URL: File content of $OTA_PENDING: $(cat $OTA_PENDING)"
+                log "Started systemd-run with path: $REPO_PATH and branch: $BRANCH_LABEL_NAME and API URL: $TIMEGATE_API_URL: File content of $OTA_PENDING: $(cat $OTA_PENDING)"
                 log "Analyze logs with: journalctl -u ff-ota-worker.service -f"
 
                 log "Update handoff complete. This service will now be restarted by the updater."

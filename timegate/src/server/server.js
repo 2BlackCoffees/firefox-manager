@@ -523,19 +523,25 @@ app.get('/api/poll', getClient, async (req, res) => {
         [req.clientId, allowance.id, allowance.sites, allowance.duration_minutes, new_status.toUpperCase()]
     );
 
-    res.json({ 
-        status: allowance.status, 
+    return_json = {
+        status: allowance.status,
         client: req.clientId, 
-        sites: allowance.sites, 
-        duration: allowance.duration_minutes, 
-        next_poll_interval: currentTTL 
-    });
+    }
+
+    if (allowance.sites)                   return_json["sites"]                    = allowance.sites;
+    if (allowance.duration_minutes)        return_json["duration"]                 = allowance.duration_minutes;
+    if (allowance.next_poll_interval)      return_json["next_poll_interval"]       = currentTTL;
+    if (allowance.timegate_api_url)        return_json["timegate_api_url"]         = allowance.timegate_api_url;
+    if (allowance.timegate_bypass_secret)  return_json["timegate_bypass_secret"]   = allowance.timegate_bypass_secret;
+    if (allowance.branch_label_name)       return_json["branch_label_name"]        = allowance.branch_label_name;
+
+    res.json(return_json);
 });
 
 app.post('/api/otarequest', getClient, checkAuth, async (req, res) => {
 
     console.log('Received OTA request with body:', req);
-    const { branch_name, timegate_api_url, timegate_bypass_secret, clients } = req.body;
+    const { branch_label_name, timegate_api_url, timegate_bypass_secret, clients } = req.body;
 
     if (!Array.isArray(clients) || clients.length === 0) {
         return res.status(400).json({ error: 'Invalid or empty clients list provided' });
@@ -554,7 +560,7 @@ app.post('/api/otarequest', getClient, checkAuth, async (req, res) => {
         }
 
         // 3. Prepare values for database insertion
-        const branch = branch_name || "main";
+        const branchLabelName = branch_label_name || "main";
         const timeGateAPIUrl = timegate_api_url || "none";
         const bypassSecret = timegate_bypass_secret || "none";
 
@@ -563,11 +569,11 @@ app.post('/api/otarequest', getClient, checkAuth, async (req, res) => {
         // but for now we assume this is manageable.
         await Promise.all(verifiedClients.map(async (clientId) => {
             const insertQuery = `
-                INSERT INTO allowances (client_id, status, branch_name, timegate_api_url, timegate_bypass_secret) 
+                INSERT INTO allowances (client_id, status, branch_label_name, timegate_api_url, timegate_bypass_secret) 
                 VALUES ($1, 'ota', $2, $3, $4) 
                 RETURNING *`;
             
-            const dbInsert = await pool.query(insertQuery, [clientId, branch, timeGateAPIUrl, bypassSecret]);
+            const dbInsert = await pool.query(insertQuery, [clientId, branchLabelName, timeGateAPIUrl, bypassSecret]);
             const savedAllowance = dbInsert.rows[0];
 
             await setCacheAllowance(clientId, savedAllowance); 

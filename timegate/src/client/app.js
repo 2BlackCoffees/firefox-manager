@@ -412,14 +412,14 @@ timeAccessesModalCancel.onclick = () => {
 };
 
 triggerOtaRequest.onclick = async () => {
-    const branchName = document.getElementById('otaBranchName').value.trim();
+    const branchLabelName = document.getElementById('otaBranchLabelName').value.trim();
     const timegateUrl = document.getElementById('otaTimegateUrl').value.trim();
     const bypassSecret = document.getElementById('otaBypassSecret').value.trim();
     const updateAllClients = document.getElementById('otaUpdateAllClients').checked;
 
-    const branchRegex = /^[a-zA-Z0-9_\-\/]+$/;
-    if (branchName && !branchRegex.test(branchName)) {
-        showAlert('error', 'Invalid Branch Name', `Branch name \"${branchName}\" can only contain letters, numbers, hyphens, underscores, and forward slashes.`);
+    const branchLabelRegex = /^[a-zA-Z0-9_\-\/\.]+$/;
+    if (branchLabelName && !branchLabelRegex.test(branchLabelName)) {
+        showAlert('error', 'Invalid Branch or Label Name', `Branch or Label name \"${branchLabelName}\" can only contain letters, numbers, hyphens, underscores, dots and forward slashes.`);
         return;
     }
 
@@ -441,7 +441,7 @@ triggerOtaRequest.onclick = async () => {
 
     try {
         const body = { 
-                branch_name: branchName || "main", 
+                branch_label_name: branchLabelName || "main", 
                 timegate_api_url: timegateUrl || "none", 
                 timegate_bypass_secret: bypassSecret || "none",
                 clients: targetClients

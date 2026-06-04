@@ -125,9 +125,21 @@ uninstall_all() {
 }
 
 git_pull() {
-    local branch_name=${1:-main}
-    echo "Pulling latest changes from git repository (branch: $branch_name)..."
-    sudo -u "$USER_NAME" bash -c "git -C \"$SCRIPT_DIR/..\" pull origin \"$branch_name\""
+    local branch_label_name=${1:-main}
+    if sudo -u $USER_NAME git -C $SCRIPT_DIR rev-parse --verify --quiet refs/tags/$branch_label_name >/dev/null; then
+        echo "$branch_label_name is a TAG"
+        sudo -u $USER_NAME git -C $SCRIPT_DIR checkout tags/$branch_label_name
+
+    elif sudo -u $USER_NAME git -C $SCRIPT_DIR rev-parse --verify --quiet refs/heads/$branch_label_name >/dev/null || \
+        sudo -u $USER_NAME git -C $SCRIPT_DIR rev-parse --verify --quiet refs/remotes/origin/$branch_label_name >/dev/null; then
+        echo "$branch_label_name is a BRANCH"
+        sudo -u $USER_NAME git -C $SCRIPT_DIR checkout $branch_label_name
+        sudo -u $USER_NAME git -C $SCRIPT_DIR pull origin $branch_label_name
+    else
+        echo "Error: $branch_label_name is neither a branch nor a tag, no update happened!" >&2
+        exit 1
+    fi
+
 }
 
 log() { 
@@ -311,7 +323,7 @@ elif [ "$ACTION" == "ota" ]; then
         source "$OTA_PENDING"
 
         configure_ota 2>&1 | tee -a "$LOG_FILE"
-        git_pull "${BRANCH_NAME}" 2>&1 | tee -a "$LOG_FILE"
+        git_pull "${BRANCH_LABEL_NAME}" 2>&1 | tee -a "$LOG_FILE"
         install_files ota 2>&1 | tee -a "$LOG_FILE"
     else
         echo "Error: $OTA_PENDING not found." 2>&1 | tee -a "$LOG_FILE"

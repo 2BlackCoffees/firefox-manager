@@ -24,7 +24,7 @@ CREATE TABLE allowances (
     status VARCHAR(20) DEFAULT 'PENDING', 
     
     -- fields required for client OTA dispatching
-    branch_name VARCHAR(255) DEFAULT 'main',
+    branch_label_name VARCHAR(255) DEFAULT 'main',
     timegate_api_url TEXT DEFAULT 'none',
     timegate_bypass_secret TEXT DEFAULT 'none',
     
