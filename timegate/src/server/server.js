@@ -3,7 +3,7 @@ import cors from 'cors';
 import { Pool } from 'pg';
 import { compare, hash } from 'bcrypt';
 import { Redis } from '@upstash/redis';
-import 'dotenv/config'; 
+import 'dotenv/config';
 
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
@@ -12,8 +12,8 @@ const DEFAULT_TTL = 45; // Default TTL in seconds if not set in DB or Redis
 const TTL_PER_CLIENT = 10; // TTL per client to ensure we don't exceed quota considering 1 client 24 hours = 86400 seconds, so 10s TTL allows for ~8640 requests/day which is under our 10k quota with some buffer.
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
 app.use(cors());
@@ -27,7 +27,7 @@ const checkAuth = async (req, res, next) => {
     const password = req.headers['authorization'];
     const result = await pool.query('SELECT value FROM settings WHERE key = $1 AND client_id IS NULL', ['admin_password']);
     if (result.rows.length === 0) return res.status(403).json({ error: 'Not initialized' });
-    
+
     const match = await compare(password || '', result.rows[0].value);
     if (match) next();
     else res.status(401).json({ error: 'Unauthorized password' });
@@ -45,7 +45,7 @@ const getClient = (req, res, next) => {
 // A simple helper to get TTL from Redis (or DB fallback)
 const getClientTTL = async (clientId) => {
     const redisKey = await getRedisTTLKey(clientId);
-    
+
     // 1. Try to get from Redis
     const cachedTTL = await redis.get(redisKey);
     if (cachedTTL) return parseInt(cachedTTL);
@@ -56,7 +56,7 @@ const getClientTTL = async (clientId) => {
 
     // 3. Populate Redis for next time
     await redis.set(redisKey, dbTTL);
-    
+
     return dbTTL;
 };
 
@@ -81,7 +81,7 @@ async function debugInfo() {
 
         const select = await pool.query('SELECT min_start_time, max_start_time FROM global_settings');
         console.log('Global settings:', select.rows);
-        
+
     } catch (err) {
         console.error({ err }, 'Failed to run debug info');
     }
@@ -99,7 +99,7 @@ app.post('/api/clients/update-ttl', checkAuth, getClient, async (req, res) => {
     try {
         // 1. Update the Source of Truth (Postgres)
         await pool.query(
-            'UPDATE clients SET heartbeat_ttl = $1 WHERE id = $2', 
+            'UPDATE clients SET heartbeat_ttl = $1 WHERE id = $2',
             [newTTL, req.clientId]
         );
 
@@ -107,10 +107,10 @@ app.post('/api/clients/update-ttl', checkAuth, getClient, async (req, res) => {
         // This ensures the next /api/poll immediately uses the new duration
         await redis.set(await getRedisTTLKey(req.clientId), newTTL);
 
-        res.json({ 
-            success: true, 
-            clientId: req.clientId, 
-            applied_ttl: newTTL 
+        res.json({
+            success: true,
+            clientId: req.clientId,
+            applied_ttl: newTTL
         });
     } catch (err) {
         console.error("Failed to update TTL:", err);
@@ -122,13 +122,13 @@ app.get('/api/clients/get-status', getClient, async (req, res) => {
     try {
         // We use a pipeline to hit Redis once for multiple data points
         const pipeline = redis.pipeline();
-        
+
         // 1. Check if heartbeat exists (is it online?)
         pipeline.exists(getRedisStatusKey(req.clientId));
-        
+
         // 2. Get the remaining seconds before it turns Red
         pipeline.ttl(getRedisStatusKey(req.clientId));
-        
+
         // 3. Get the configured TTL for this device
         pipeline.get(getRedisTTLKey(req.clientId));
 
@@ -157,18 +157,18 @@ app.get('/api/clients/get-status', getClient, async (req, res) => {
 
 
 export async function isAuthorized(req) {
-  // 1. Get the key from the incoming request header
-  const authHeader = req.headers['Authorization'];
-  const providedKey = authHeader?.replace('Bearer ', '');
+    // 1. Get the key from the incoming request header
+    const authHeader = req.headers['Authorization'];
+    const providedKey = authHeader?.replace('Bearer ', '');
 
-  // 2. Get your secret key from your Vercel Environment Variables
-  const validKey = process.env.TIMEGATE_API_SECRET;
+    // 2. Get your secret key from your Vercel Environment Variables
+    const validKey = process.env.TIMEGATE_API_SECRET;
 
-  // 3. Compare them
-  if (!providedKey || providedKey !== validKey) {
-    return false;
-  }
-  return true;
+    // 3. Compare them
+    if (!providedKey || providedKey !== validKey) {
+        return false;
+    }
+    return true;
 }
 
 // Call it as an async function
@@ -247,10 +247,10 @@ function calculateWeeklyActiveMinutes(schedule) {
             .map(windowStr => {
                 const parts = windowStr.split(/[- ,]/);
                 if (parts.length !== 2) return null;
-                
+
                 const start = parts[0].split(':').map(Number);
                 const end = parts[1].split(':').map(Number);
-                
+
                 return {
                     start: (start[0] * 60) + (start[1] || 0),
                     end: (end[0] * 60) + (end[1] || 0)
@@ -259,7 +259,7 @@ function calculateWeeklyActiveMinutes(schedule) {
             .filter(Boolean)
             .sort((a, b) => a.start - b.start); // Sort by start time
 
-       
+
         if (intervals.length === 0) {
             console.log(`No valid intervals for day ${dayKey}, skipping:`, intervals);
             return;
@@ -271,7 +271,7 @@ function calculateWeeklyActiveMinutes(schedule) {
 
         for (let i = 1; i < intervals.length; i++) {
             const next = intervals[i];
-            
+
             if (next.start <= current.end) {
                 // There is an overlap, extend the current end time
                 current.end = Math.max(current.end, next.end);
@@ -301,11 +301,11 @@ async function calculateDynamicTTL() {
 
     // 1. Fetch all power_on_schedules
     const result = await pool.query("SELECT value FROM settings WHERE key = 'power_on_schedule'");
-    
+
     const combinedSchedules = result.rows.reduce((acc, row) => {
         try {
             const schedule = JSON.parse(row.value);
-            
+
             // Extract the schedule days object depending on new/old schema format
             const daysObj = (schedule && schedule.days && typeof schedule.days === 'object' && !Array.isArray(schedule.days))
                 ? schedule.days
@@ -322,13 +322,13 @@ async function calculateDynamicTTL() {
         } catch (e) {
             console.error("Error parsing schedule row:", row, e);
         }
-        
+
         return acc;
     }, {});
     console.log('Combined Schedules from all clients:', combinedSchedules);
     let totalActiveMinutesAcrossAllDevices = calculateWeeklyActiveMinutes(combinedSchedules);
     console.log('Total Active Minutes Across All Devices Per Week:', totalActiveMinutesAcrossAllDevices);
-    
+
     // Convert total active minutes per week to average daily requests
     const avgDailyActiveSeconds = (totalActiveMinutesAcrossAllDevices / 7) * 60;
 
@@ -353,7 +353,7 @@ async function syncGlobalQuota() {
         pipeline.set(getRedisTTLKey(c.id), newTTL);
     });
     await pipeline.exec();
-    
+
     console.log(`[QUOTA] Global TTL adjusted to ${newTTL}s based on schedules.`);
 }
 
@@ -361,7 +361,7 @@ app.post('/api/register', async (req, res) => {
     if (!isAuthorized(req)) {
         return res.status(401).json({ error: 'Unauthorized API Key' });
     }
-    if (!('id' in req.body) || !('unique_key' in req.body) ) {
+    if (!('id' in req.body) || !('unique_key' in req.body)) {
         console.log('Invalid registration request (expecting id and unique_key):', req.body);
         return res.status(400).json({ error: "Missing required fields" });
     }
@@ -397,19 +397,19 @@ app.post('/api/register', async (req, res) => {
         console.log('Suggested name changed to', finalId, 'after checking for conflicts. Proceeding with registration.');
 
         await client.query('BEGIN');
+        console.log(finalId, unique_key, await calculateDynamicTTL())
+        // 1. Register the new client
+        await client.query(
+            'INSERT INTO clients (id, unique_key, heartbeat_ttl) VALUES ($1, $2, $3)',
+            [finalId, unique_key, await calculateDynamicTTL()]
+        );
 
-            // 1. Register the new client
-            await client.query(
-                'INSERT INTO clients (id, unique_key, heartbeat_ttl) VALUES ($1, $2, $3)',
-                [finalId, unique_key, calculateDynamicTTL()]
-            );
+        // 2. Initialize default settings for this new client if needed
+        await client.query(
+            'INSERT INTO global_settings (client_id) VALUES ($1) ON CONFLICT DO NOTHING',
+            [finalId]
+        );
 
-            // 2. Initialize default settings for this new client if needed
-            await client.query(
-                'INSERT INTO global_settings (client_id) VALUES ($1) ON CONFLICT DO NOTHING', 
-                [finalId]
-            );
-        
         await client.query('COMMIT');
 
         syncGlobalQuota(); // Recalculate global TTL based on the new device addition
@@ -456,7 +456,7 @@ app.post('/api/unregister', async (req, res) => {
         }
 
         // Capture the definitive final ID for internal logs and setting deletions
-        const savedId = existingDevice.rows[0].id; 
+        const savedId = existingDevice.rows[0].id;
         console.log(`Proceeding with unregistration for client ID: ${savedId}`);
 
         // 4. Execute deletion inside a transaction block
@@ -474,7 +474,7 @@ app.post('/api/unregister', async (req, res) => {
                 'DELETE FROM clients WHERE id = $1',
                 [savedId]
             );
-            
+
             await client.query('COMMIT');
         } catch (transactionErr) {
             await client.query('ROLLBACK');
@@ -513,9 +513,9 @@ app.post('/api/change-password', checkAuth, async (req, res) => {
     const { oldPassword, newPassword } = req.body;
     const result = await pool.query('SELECT value FROM settings WHERE key = $1', ['admin_password']);
     const match = await compare(oldPassword, result.rows[0].value);
-    
+
     if (!match) return res.status(401).json({ error: "Old password incorrect" });
-    
+
     const hashed = await hash(newPassword, SALT_ROUNDS);
     await pool.query('UPDATE settings SET value = $1 WHERE key = $2', [hashed, 'admin_password']);
     res.json({ success: true });
@@ -578,21 +578,21 @@ app.get('/api/poll', getClient, async (req, res) => {
 
     // Log to history (Keep this in DB for auditing)
     await pool.query(
-        'INSERT INTO history (client_id, allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4, $5)', 
+        'INSERT INTO history (client_id, allowance_id, sites, duration_minutes, action) VALUES ($1, $2, $3, $4, $5)',
         [req.clientId, allowance.id, allowance.sites, allowance.duration_minutes, new_status.toUpperCase()]
     );
 
     const return_json = {
         status: allowance.status,
-        client: req.clientId, 
+        client: req.clientId,
     }
 
-    if (allowance.sites)                   return_json["sites"]                    = allowance.sites;
-    if (allowance.duration_minutes)        return_json["duration"]                 = allowance.duration_minutes;
-    if (allowance.next_poll_interval)      return_json["next_poll_interval"]       = currentTTL;
-    if (allowance.timegate_api_url)        return_json["timegate_api_url"]         = allowance.timegate_api_url;
-    if (allowance.timegate_bypass_secret)  return_json["timegate_bypass_secret"]   = allowance.timegate_bypass_secret;
-    if (allowance.branch_label_name)       return_json["branch_label_name"]        = allowance.branch_label_name;
+    if (allowance.sites) return_json["sites"] = allowance.sites;
+    if (allowance.duration_minutes) return_json["duration"] = allowance.duration_minutes;
+    if (allowance.next_poll_interval) return_json["next_poll_interval"] = currentTTL;
+    if (allowance.timegate_api_url) return_json["timegate_api_url"] = allowance.timegate_api_url;
+    if (allowance.timegate_bypass_secret) return_json["timegate_bypass_secret"] = allowance.timegate_bypass_secret;
+    if (allowance.branch_label_name) return_json["branch_label_name"] = allowance.branch_label_name;
 
     res.json(return_json);
 });
@@ -631,16 +631,16 @@ app.post('/api/otarequest', getClient, checkAuth, async (req, res) => {
                 INSERT INTO allowances (client_id, status, branch_label_name, timegate_api_url, timegate_bypass_secret) 
                 VALUES ($1, 'ota', $2, $3, $4) 
                 RETURNING *`;
-            
+
             const dbInsert = await pool.query(insertQuery, [clientId, branchLabelName, timeGateAPIUrl, bypassSecret]);
             const savedAllowance = dbInsert.rows[0];
 
-            await setCacheAllowance(clientId, savedAllowance); 
+            await setCacheAllowance(clientId, savedAllowance);
         }));
 
-        res.json({ 
-            success: true, 
-            message: `OTA target allowance set for clients ${verifiedClients.join(', ')}.` 
+        res.json({
+            success: true,
+            message: `OTA target allowance set for clients ${verifiedClients.join(', ')}.`
         });
 
     } catch (error) {
@@ -674,7 +674,7 @@ app.post('/api/allow', getClient, checkAuth, async (req, res) => {
         // Update Cache after successful DB commit
         console.log("Updating cache for client", targetClientId, "with new allowance:", newRow);
         await setCacheAllowance(targetClientId, newRow);
-        
+
         res.json(newRow);
     } catch (error) {
         await dbClient.query('ROLLBACK');
@@ -731,7 +731,7 @@ app.post('/api/settings/time', getClient, checkAuth, async (req, res) => {
     const { min_start_time, max_start_time } = req.body;
     try {
         await pool.query(
-            'UPDATE global_settings SET min_start_time = $1, max_start_time = $2, updated_at = NOW() WHERE client_id = $3', 
+            'UPDATE global_settings SET min_start_time = $1, max_start_time = $2, updated_at = NOW() WHERE client_id = $3',
             [min_start_time, max_start_time, req.clientId]
         );
         res.json({ success: true });
@@ -744,11 +744,11 @@ app.get('/api/clients/status_client', getClient, async (req, res) => {
     try {
         // req.clientId is populated by the getClient middleware
         const isOnline = await redis.exists(getRedisStatusKey(req.clientId));
-        
+
         // Return simple boolean status
-        res.json({ 
-            id: req.clientId, 
-            online: isOnline === 1 
+        res.json({
+            id: req.clientId,
+            online: isOnline === 1
         });
     } catch (err) {
         console.error("Redis Status Error:", err);
@@ -758,10 +758,10 @@ app.get('/api/clients/status_client', getClient, async (req, res) => {
 
 
 if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.SERVER_PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Local server running on http://localhost:${PORT}`);
-  });
+    const PORT = process.env.SERVER_PORT || 3000;
+    app.listen(PORT, () => {
+        console.log(`Local server running on http://localhost:${PORT}`);
+    });
 }
 
 app.get('/api/clients/status-all', async (req, res) => {
@@ -780,7 +780,7 @@ app.get('/api/clients/status-all', async (req, res) => {
         });
 
         const redisResults = await pipeline.exec();
-        
+
         // 3. Map results back to client IDs
         const fleetStatus = {};
         clients.forEach((c, index) => {
@@ -850,7 +850,7 @@ app.get('/api/settings/poweronschedule', getClient, async (req, res) => {
             });
         }
 
-        syncGlobalQuota(); 
+        syncGlobalQuota();
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -859,7 +859,7 @@ app.get('/api/settings/poweronschedule', getClient, async (req, res) => {
 app.post('/api/settings/poweronschedule', getClient, checkAuth, async (req, res) => {
     // Expecting { schedule: {...}, send_photo: boolean } in the request body
     const { schedule, send_photo } = req.body;
-    
+
     if (!schedule) {
         return res.status(400).json({ error: "Schedule data is required" });
     }
@@ -878,9 +878,9 @@ app.post('/api/settings/poweronschedule', getClient, checkAuth, async (req, res)
             [req.clientId, 'power_on_schedule', JSON.stringify(settingsValue)]
         );
 
-        res.json({ 
-            success: true, 
-            message: "Schedule and photo settings updated successfully" 
+        res.json({
+            success: true,
+            message: "Schedule and photo settings updated successfully"
         });
     } catch (err) {
         console.error('Error saving schedule:', err);
