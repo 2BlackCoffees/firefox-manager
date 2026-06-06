@@ -53,10 +53,10 @@ call_api() {
 }
 
 register_device() {
-    if [[ -n "$REGISTERED_ID" ]]; then
-        log "Device already registered as: $REGISTERED_ID"
-        return 0
-    fi
+    # if [[ -n "$REGISTERED_ID" ]]; then
+    #     log "Device already registered as: $REGISTERED_ID"
+    #     return 0
+    # fi
 
     log "No registration found. Starting handshake..."
     
@@ -66,19 +66,23 @@ register_device() {
 
     log "Registering $DEVICE_NAME ($MAC_ADDR) with backend..."
     log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -d \"{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/register\""
-    RESPONSE=$(curl -s -X POST \
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $TIMEGATE_API_SECRET" \
         -d "{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}" \
         "$TIMEGATE_API_URL/api/register")
-
-    if [[ $? -eq 0 ]]; then
+    
+    if [[ $? -ne 0 ]]; then
+        log "Curl failed with exit code $CURL_EXIT (e.g., DNS failure, timeout, or refused connection)"
+        return 1
+    elif [[ "$HTTP_STATUS" -ne 200 && "$HTTP_STATUS" -ne 300 ]]; then
+        log "Registration failed with HTTP status code: $HTTP_STATUS. Will retry next loop."
+        return 1
+    else
         REGISTERED_ID="$DEVICE_NAME"
         save_config
         log "Registration successful. ID stored: $REGISTERED_ID"
-    else
-        log "Registration failed. Will retry next loop."
-        return 1
+        return 0
     fi
 }
 
