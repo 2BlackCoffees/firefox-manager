@@ -97,7 +97,7 @@ npx vercel@latest env add UPSTASH_REDIS_REST_TOKEN production
 ```
 If you need to modify the variable, you will first have to remove it:
 ```bash
-vercel env remove DATABASE_URL production
+npx vercel@latest env remove DATABASE_URL production
 ```
 
 3. **Deploy:**
