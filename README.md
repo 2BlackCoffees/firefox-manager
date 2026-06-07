@@ -38,6 +38,42 @@ To ensure deep integration with system permissions and networking, this tool is 
 * **OS:** Linux (Debian-based preferred)
 * **Desktop Environment:** Optimized for **XUbuntu** (XFCE) for maximum operability.
 
+### Other features
+
+#### Anti theft 
+The application provides an anti theft feature ensuring that upon starting a computer the geo corrdinate of the computer and potentially a photo of the user are immidiately sent to the registered mail address to help police when reseraching for lost or stolen devices.
+Please note that per default no photo is taken and the feature has to be explicitly enabled by the user taking all responsibility for data privacy issues and legal compliance. 
+
+#### Fair Share Algorithm
+
+The solution uses a Fair Share algorithm ensure that the application stays free no matter what the number of connected devices.
+
+The algorithm is based on the following:
+
+1.  **Quota Cap:** We limit total activity to 10,000 Redis requests per day to keep the service free.
+2.  **UI Slice:** The dashboard uses a fixed budget by polling for all devices in a single batch every 60 seconds.
+3.  **Active Minutes:** Upon new registration, the server parses all `power_on_schedule` JSONs to calculate total fleet uptime.
+4.  **The Formula:** ensures for the safest and always free poll rate $$TTL = \frac{\text{Average Daily Active Seconds (Fleet)}}{\text{Available Device Quota (9,500 requests)}}$$ 
+5.  **Auto-Throttling:** If you add more devices or longer hours, the TTL increases to slow down consumption.
+6.  **Database Sync:** Postgres stores the calculated TTL as the master record for every registered client.
+7.  **Redis Config:** A "Hot Cache" in Redis stores the TTL so servers can check it instantly without SQL hits.
+8.  **Heartbeat Logic:** Devices set a Redis "Presence" key with an expiration exactly equal to the calculated TTL.
+9.  **Real-Time Status:** If a device misses its poll window, Redis auto-deletes the key, turning the LED red.
+10. **Global Integrity:** Using a shared Redis "brain" ensures all server instances see the same status and quota.
+
+To stay 100% free while using **Upstash Redis** (10k request limit) and **Neon Postgres** (190 compute hour limit), the architecture follows these rules:
+
+1.  **Dual-Constraint Strategy:** We balance Redis's "Per-Request" cap against Neon's "Active-Time" cap to ensure neither exceeds free tier boundaries.
+2.  **Redis as the "Shield":** High-frequency device polls (every few seconds) hit Redis only, preventing Neon from "waking up" and consuming its limited compute hours.
+3.  **Neon as the "Archive":** Postgres is reserved for infrequent, critical operations like registrations, schedule changes, and persistent history logging.
+4.  **Auto-Sleep Optimization:** By using Redis to handle the "chatter," we allow Neon to auto-suspend (scale to zero), preserving its 190-hour monthly budget.
+7.  **Write-Through Caching:** Configuration changes (like a new schedule) are written to Neon once and cached in Redis for fast, cost-free retrieval.
+
+#### OTA (Over the Air updates)
+The application allows OTA update following GitOps best practices (Based on a specified git branch or git tag) together with configuration where the server controlling a device can be remotely updated. 
+In addition to increasing felxibility, this allows the creation of a "rolling release" based on different git branches (dev, test, stable) that are pushed to the devices based on the group/type configuration in the cloud dashboard.
+
+
 ---
 
 ## 🚀 Installation & Configuration
@@ -89,11 +125,10 @@ Before running the script, note that if you want to open the port 22 to be able 
 `export OPEN_SSH=1`.
 
 ```bash
-chmod +x scripts/install.sh
-./scripts/install.sh run
+sudo ./scripts/install.sh run <user_name>
 ```
 
-### 2. Set the Alias
+### Set the Alias
 Add the alias.sh to your shell configuration to enable the command-line interface:
 Append the function from alias.sh to your ~/.bashrc
 ```bash
