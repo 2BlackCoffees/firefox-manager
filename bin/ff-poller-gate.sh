@@ -53,26 +53,12 @@ call_api() {
 }
 
 get_unique_key() {
-    
-    # Get the default network interface
-    local default_interface
-    default_interface=$(ip route show default | awk '/default/ {print $5}')
-    
-    # Safety check: If there is no default route (offline), handle the error gracefully
-    if [ -z "$default_interface" ]; then
-        echo "Error: No default network interface found." >&2
-        return 1
+    local motherboard_uuid=$(dmidecode -s system-uuid 2>/dev/null)
+    if [ -z "$motherboard_uuid" ]; then
+        motherboard_uuid=$(dmidecode -s baseboard-serial-number 2>/dev/null)
     fi
-    
-    # Fetch the MAC address for that interface
-    local mac_addr
-    mac_addr=$(cat "/sys/class/net/${default_interface}/address")
-    
-    # Construct the unique key
-    local unique_key="${mac_addr}"
-    
-    # Return the key by printing it
-    echo "$unique_key"
+    local partition_uuid=$(findmnt -n -o UUID /)
+    echo "$motherboard_uuid::$partition_uuid"
 }
 
 register_device() {
@@ -99,7 +85,7 @@ register_device() {
     RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
     
     if [[ "$HTTP_STATUS" -ne 200 && "$HTTP_STATUS" -ne 300 ]]; then
-        log "Registration failed with HTTP status code: $HTTP_STATUS. Will retry next loop."
+        log "Registration failed with HTTP status code: $HTTP_STATUS, body: $RESPONSE_BODY. Will try after service restart."
         return 1
     else
         REGISTERED_ID=$(echo "$RESPONSE_BODY" | jq -r '.id')
