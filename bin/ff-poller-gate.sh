@@ -33,7 +33,7 @@ save_config() {
     cat <<EOF > "$CONFIG_FILE"
 MIN_START_TIME="$MIN_START_TIME"
 MAX_START_TIME="$MAX_START_TIME"
-# REGISTERED_ID="$REGISTERED_ID"
+REGISTERED_ID="$REGISTERED_ID"
 EOF
 }
 # 1. Load persisted values or set defaults
