@@ -33,7 +33,7 @@ save_config() {
     cat <<EOF > "$CONFIG_FILE"
 MIN_START_TIME="$MIN_START_TIME"
 MAX_START_TIME="$MAX_START_TIME"
-REGISTERED_ID="$REGISTERED_ID"
+# REGISTERED_ID="$REGISTERED_ID"
 EOF
 }
 # 1. Load persisted values or set defaults
@@ -52,34 +52,57 @@ call_api() {
             "${TIMEGATE_API_URL}$endpoint"
 }
 
-register_device() {
-    # if [[ -n "$REGISTERED_ID" ]]; then
-    #     log "Device already registered as: $REGISTERED_ID"
-    #     return 0
-    # fi
+get_unique_key() {
+    
+    # Get the default network interface
+    local default_interface
+    default_interface=$(ip route show default | awk '/default/ {print $5}')
+    
+    # Safety check: If there is no default route (offline), handle the error gracefully
+    if [ -z "$default_interface" ]; then
+        echo "Error: No default network interface found." >&2
+        return 1
+    fi
+    
+    # Fetch the MAC address for that interface
+    local mac_addr
+    mac_addr=$(cat "/sys/class/net/${default_interface}/address")
+    
+    # Construct the unique key
+    local unique_key="${mac_addr}"
+    
+    # Return the key by printing it
+    echo "$unique_key"
+}
 
-    log "No registration found. Starting handshake..."
+register_device() {
     
     # Generate unique key based on MAC address
-    local MAC_ADDR=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address)
-    local DEVICE_NAME=$(hostname)
+    local UNIQUE_KEY=$(get_unique_key)
+    local DEVICE_NAME="$(hostname)"
 
-    log "Registering $DEVICE_NAME ($MAC_ADDR) with backend..."
-    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -d \"{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/register\""
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+    log "Registering $DEVICE_NAME ($UNIQUE_KEY) with backend..."
+    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -d '{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$UNIQUE_KEY\"}' \"$TIMEGATE_API_URL/api/register\""
+    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $TIMEGATE_API_SECRET" \
-        -d "{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$MAC_ADDR\"}" \
+        -d "{\"id\": \"$DEVICE_NAME\", \"unique_key\": \"$UNIQUE_KEY\"}" \
         "$TIMEGATE_API_URL/api/register")
-    
-    if [[ $? -ne 0 ]]; then
+    CURL_EXIT=$?
+    if [[ $CURL_EXIT -ne 0 ]]; then
         log "Curl failed with exit code $CURL_EXIT (e.g., DNS failure, timeout, or refused connection)"
         return 1
-    elif [[ "$HTTP_STATUS" -ne 200 && "$HTTP_STATUS" -ne 300 ]]; then
+    fi
+
+    # Extract HTTP status and body
+    HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+    RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+    
+    if [[ "$HTTP_STATUS" -ne 200 && "$HTTP_STATUS" -ne 300 ]]; then
         log "Registration failed with HTTP status code: $HTTP_STATUS. Will retry next loop."
         return 1
     else
-        REGISTERED_ID="$DEVICE_NAME"
+        REGISTERED_ID=$(echo "$RESPONSE_BODY" | jq -r '.id')
         save_config
         log "Registration successful. ID stored: $REGISTERED_ID"
         return 0
@@ -94,14 +117,14 @@ unregister_device() {
     log "Starting unregistration..."
     
     # Generate unique key based on MAC address
-    local MAC_ADDR=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address)
+    local UNIQUE_KEY=$(get_unique_key)
 
-    log "Unregistering $REGISTERED_ID ($MAC_ADDR) with backend..."
-    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -d \"{\"id\": \"$REGISTERED_ID\", \"unique_key\": \"$MAC_ADDR\"}\" \"$TIMEGATE_API_URL/api/unregister\""
+    log "Unregistering $REGISTERED_ID ($UNIQUE_KEY) with backend..."
+    log "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TIMEGATE_API_SECRET\" -d '{\"id\": \"$REGISTERED_ID\", \"unique_key\": \"$UNIQUE_KEY\"}' \"$TIMEGATE_API_URL/api/unregister\""
     RESPONSE=$(curl -s -X POST \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $TIMEGATE_API_SECRET" \
-        -d "{\"id\": \"$REGISTERED_ID\", \"unique_key\": \"$MAC_ADDR\"}" \
+        -d "{\"id\": \"$REGISTERED_ID\", \"unique_key\": \"$UNIQUE_KEY\"}" \
         "$TIMEGATE_API_URL/api/unregister")
 
     if [[ $? -eq 0 ]]; then
