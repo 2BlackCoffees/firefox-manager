@@ -53,12 +53,7 @@ call_api() {
 }
 
 register_device() {
-    if [[ -n "$REGISTERED_ID" ]]; then
-        log "Device already registered as: $REGISTERED_ID"
-        return 0
-    fi
-
-    log "No registration found. Starting handshake..."
+    log "Starting handshake..."
     
     # Generate unique key based on MAC address
     local MAC_ADDR=$(cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address)
